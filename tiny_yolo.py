@@ -1,16 +1,15 @@
-import torch
-import math
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image, ImageDraw
-from torch.autograd import Variable
 from collections import OrderedDict
 from utils import *
 
-class Net(nn.Module):
+class TinyYoloNet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(TinyYoloNet, self).__init__()
+        self.num_classes = 20
+        self.anchors = [1.08,1.19,  3.42,4.41,  6.63,11.38,  9.42,5.11,  16.62,10.52]
+
         self.cnn1 = nn.Sequential(OrderedDict([
             # conv1
             ('conv1', nn.Conv2d( 3, 16, 3, 1, 1, bias=False)),
@@ -48,6 +47,9 @@ class Net(nn.Module):
             ('leaky6', nn.LeakyReLU(0.1, inplace=True)),
         ]))
 
+        num_anchors = len(self.anchors)/2
+        num_output = (5+self.num_classes)*num_anchors
+
         self.cnn2 = nn.Sequential(OrderedDict([
             # conv7
             ('conv7', nn.Conv2d(512, 1024, 3, 1, 1, bias=False)),
@@ -60,7 +62,7 @@ class Net(nn.Module):
             ('leaky8', nn.LeakyReLU(0.1, inplace=True)),
 
             # output
-            ('output', nn.Conv2d(1024, 125, 1, 1, 0)),
+            ('output', nn.Conv2d(1024, num_output, 1, 1, 0)),
         ]))
 
     def forward(self, x):
@@ -70,31 +72,6 @@ class Net(nn.Module):
         #return F.log_softmax(x)
 
     def load_darknet_weights(self, path):
-        def load_conv(buf, start, conv_model):
-            num_w = conv_model.weight.numel()
-            num_b = conv_model.bias.numel()
-            conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-            conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
-            return start
-        
-        def load_conv_bn(buf, start, conv_model, bn_model):
-            num_w = conv_model.weight.numel()
-            num_b = bn_model.bias.numel()
-            bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-            bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-            bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-            running_var = torch.from_numpy(buf[start:start+num_b]); start = start + num_b
-            bn_model.running_var.copy_((running_var.sqrt() + .00001).pow(2) - 0.00001)
-            conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
-            return start
-        
-        def load_fc(buf, start, fc_model):
-            num_w = fc_model.weight.numel()
-            num_b = fc_model.bias.numel()
-            fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-            fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
-            return start
-
         #buf = np.fromfile('tiny-yolo-voc.weights', dtype = np.float32)
         buf = np.fromfile(path, dtype = np.float32)
         start = 4
@@ -110,30 +87,3 @@ class Net(nn.Module):
         start = load_conv_bn(buf, start, self.cnn2[3], self.cnn2[4])
         start = load_conv(buf, start, self.cnn2[6])
 
-
-def do_detect(model, img, thresh, nms_thresh):
-    model.eval()
-    img = img.resize((416, 416))
-    width = img.width
-    height = img.height
-    img = torch.ByteTensor(torch.ByteStorage.from_buffer(img.tobytes()))
-    img = img.view(height, width, 3).transpose(0,1).transpose(0,2).contiguous()
-    img = img.view(1, 3, height, width)
-    img = img.float().div(255.0)
-    img = Variable(img)
-
-    output = model(img)
-    output = output.data
-    boxes = get_region_boxes(output, thresh)
-    boxes = nms(boxes, nms_thresh)
-    return boxes
-    
-############################################
-m = Net() 
-m.float()
-m.eval()
-m.load_darknet_weights('tiny-yolo-voc.weights')
-
-img = Image.open('person.jpg').convert('RGB')
-boxes = do_detect(m, img, 0.5, 0.4)
-plot_boxes(img, boxes, 'predict.jpg')

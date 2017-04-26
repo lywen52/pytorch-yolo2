@@ -28,7 +28,7 @@ def bbox_iou(bbox1, bbox2):
     uarea = area1 + area2 - carea
     return carea/uarea
 
-def nms(boxes, thresh):
+def nms(boxes, nms_thresh):
     if len(boxes) == 0:
         return boxes
 
@@ -44,14 +44,12 @@ def nms(boxes, thresh):
             out_boxes.append(box_i)
             for j in range(i+1, len(boxes)):
                 box_j = boxes[sortIds[j]]
-                if bbox_iou(box_i, box_j) > thresh:
+                if bbox_iou(box_i, box_j) > nms_thresh:
                     box_j[4] = 0
     return out_boxes
 
-def get_region_boxes(output, thresh):
-    num_classes = 20
-    num_anchors = 5
-    anchors = [1.08,1.19,  3.42,4.41,  6.63,11.38,  9.42,5.11,  16.62,10.52]
+def get_region_boxes(output, conf_thresh, num_classes, anchors):
+    num_anchors = len(anchors)/2
     assert(output.size(0) == 1)
     assert(output.size(1) == (5+num_classes)*num_anchors)
     h = output.size(2)
@@ -70,7 +68,7 @@ def get_region_boxes(output, thresh):
                 y1 = bcy - bh/2
                 x2 = bcx + bw/2
                 y2 = bcy + bh/2
-                if det_conf > thresh:
+                if det_conf > conf_thresh:
                     box = [x1/w, y1/h, x2/w, y2/h, det_conf]
                     boxes.append(box)
     return boxes
@@ -88,4 +86,27 @@ def plot_boxes(img, boxes, savename):
         draw.rectangle([x1, y1, x2, y2])
     img.save(savename)
 
+def load_conv(buf, start, conv_model):
+    num_w = conv_model.weight.numel()
+    num_b = conv_model.bias.numel()
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
+    return start
 
+def load_conv_bn(buf, start, conv_model, bn_model):
+    num_w = conv_model.weight.numel()
+    num_b = bn_model.bias.numel()
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    running_var = torch.from_numpy(buf[start:start+num_b]); start = start + num_b
+    bn_model.running_var.copy_((running_var.sqrt() + .00001).pow(2) - 0.00001)
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    return start
+
+def load_fc(buf, start, fc_model):
+    num_w = fc_model.weight.numel()
+    num_b = fc_model.bias.numel()
+    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    return start
