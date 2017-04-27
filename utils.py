@@ -1,5 +1,7 @@
+import os
 import math
 import torch
+import numpy as np
 from PIL import Image, ImageDraw
 
 def sigmoid(x):
@@ -68,6 +70,10 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                 y1 = bcy - bh/2
                 x2 = bcx + bw/2
                 y2 = bcy + bh/2
+                x1 = max(x1, 0.0)
+                y1 = max(y1, 0.0)
+                x2 = min(x2, w)
+                y2 = min(y2, h)
                 if det_conf > conf_thresh:
                     box = [x1/w, y1/h, x2/w, y2/h, det_conf]
                     boxes.append(box)
@@ -93,14 +99,17 @@ def load_conv(buf, start, conv_model):
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
     return start
 
-def load_conv_bn(buf, start, conv_model, bn_model):
+def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=0):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
     bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
     bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
     bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
     running_var = torch.from_numpy(buf[start:start+num_b]); start = start + num_b
-    bn_model.running_var.copy_((running_var.sqrt() + .00001).pow(2) - 0.00001)
+    if same_as_darknet:
+        bn_model.running_var.copy_((running_var.sqrt() + .00001).pow(2) - 0.00001)
+    else:
+        bn_model.running_var.copy_(running_var)
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
     return start
 
@@ -110,3 +119,11 @@ def load_fc(buf, start, fc_model):
     fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
     fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
     return start
+
+def read_truths(lab_path):
+    if os.path.getsize(lab_path):
+        truths = np.loadtxt(lab_path)
+        truths = truths.reshape(truths.size/5, 5)
+        return truths
+    else:
+        return np.array([])

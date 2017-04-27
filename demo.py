@@ -1,10 +1,14 @@
+import os
 import torch
 import math
 import numpy as np
 from PIL import Image, ImageDraw
 from torch.autograd import Variable
 from tiny_yolo import TinyYoloNet
+from tiny_yolo_face14 import TinyYoloFace14Net
 from utils import *
+
+use_cuda = 1
 
 def do_detect(model, img, conf_thresh, nms_thresh):
     model.eval()
@@ -14,6 +18,8 @@ def do_detect(model, img, conf_thresh, nms_thresh):
     img = img.view(height, width, 3).transpose(0,1).transpose(0,2).contiguous()
     img = img.view(1, 3, height, width)
     img = img.float().div(255.0)
+    if use_cuda:
+        img = img.cuda()
     img = Variable(img)
 
     output = model(img)
@@ -28,17 +34,22 @@ def demo(tiny_yolo_weight, img_path):
     m.eval()
     m.load_darknet_weights(tiny_yolo_weight)
     
+    if use_cuda:
+        m.cuda()
+
     img = Image.open(img_path).convert('RGB')
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4)
     plot_boxes(img, boxes, 'predict.jpg')    
 
 def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
-    m = Net()
+    m = TinyYoloFace14Net()
     m.float()
     m.eval()
     m.load_darknet_weights(tiny_yolo_weight)
 
+    if use_cuda:
+        m.cuda()
 
     conf_thresh = 0.25
     nms_thresh = 0.4
@@ -50,12 +61,19 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
     total = 0.0
     proposals = 0.0
     correct = 0.0
+    lineId = 0
     for line in lines:
+        lineId = lineId + 1
         img_path = line.rstrip()
         lab_path = img_path.replace('images', 'labels').replace('.jpg', '.txt')
-        truths = np.loadtxt(lab_path)
+        truths = read_truths(lab_path)
+        #print(truths)
+
         img = Image.open(img_path).convert('RGB').resize((eval_wid, eval_hei))
         boxes = do_detect(m, img, conf_thresh, nms_thresh)
+        savename = "tmp/%06d.jpg" % (lineId)
+        print("save %s" % savename)
+        plot_boxes(img, boxes, savename)
         
         total = total + truths.shape[0]
 
@@ -79,9 +97,9 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
         precision = 1.0*correct/proposals
         recall = 1.0*correct/total
         fscore = 2.0*precision*recall/(precision+recall)
-        print("precision: %f, recal: %f, fscore: %f\n" % (precision, recall, fscore))
+        print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
 
 ############################################
 if __name__ == '__main__':
-    demo('tiny-yolo-voc.weights', 'person.jpg')
-    #eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
+    #demo('tiny-yolo-voc.weights', 'person.jpg')
+    eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
