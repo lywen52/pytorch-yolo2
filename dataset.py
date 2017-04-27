@@ -1,10 +1,13 @@
 #!/usr/bin/python
 # encoding: utf-8
 
+import os
 import random
 import torch
+import numpy as np
 from torch.utils.data import Dataset
 from PIL import Image
+from utils import read_truths
 
 
 class listDataset(Dataset):
@@ -25,14 +28,22 @@ class listDataset(Dataset):
 
     def __getitem__(self, index):
         assert index <= len(self), 'index range error'
-        imgpath, label = self.lines[index].split()
-        img = Image.open(imgpath).convert('L')
+        imgpath = self.lines[index].rstrip()
+        labpath = imgpath.replace('images', 'labels').replace('.jpg', '.txt')
+        label = torch.zeros(30*5)
+
+        if os.path.getsize(labpath):
+            tmp = torch.from_numpy(np.loadtxt(labpath))
+            tmp = tmp.view(-1)
+            tsz = tmp.numel()
+            assert(tsz <= 30*5)
+            label[0:tsz] = tmp
+
+        img = Image.open(imgpath).convert('RGB')
 
         if self.transform is not None:
             img = self.transform(img)
 
-        label = int(label)
-        
         if self.target_transform is not None:
             label = self.target_transform(label)
 

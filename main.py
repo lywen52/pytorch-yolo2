@@ -1,328 +1,206 @@
+from __future__ import print_function
 import argparse
-import os
-import shutil
-import time
-
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.nn.functional as F
+import torch.optim as optim
 import torch.backends.cudnn as cudnn
-import torch.optim
-import torch.utils.data
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
+from torchvision import datasets, transforms
+from torch.autograd import Variable
+from tiny_yolo_face14 import TinyYoloFace14Net
+
+import dataset
+from utils import *
+
+# Training settings
+parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                    help='input batch size for training (default: 64)')
+parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+                    help='input batch size for testing (default: 1000)')
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
+                    help='number of epochs to train (default: 10)')
+parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+                    help='learning rate (default: 0.01)')
+parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
+                    help='SGD momentum (default: 0.5)')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='enables CUDA training')
+parser.add_argument('--seed', type=int, default=1, metavar='S',
+                    help='random seed (default: 1)')
+parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+                    help='how many batches to wait before logging training status')
+args = parser.parse_args()
+args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+torch.manual_seed(args.seed)
+if args.cuda:
+    torch.cuda.manual_seed(args.seed)
 
 
-model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 
+print('batch_size = %d' % (args.batch_size))
+print('test_batch_size = %d' % (args.test_batch_size))
 
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR',
-                    help='path to dataset')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
-                    metavar='N', help='mini-batch size (default: 256)')
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                    metavar='LR', help='initial learning rate')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                    help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)')
-parser.add_argument('--print-freq', '-p', default=10, type=int,
-                    metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
-parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-                    help='use pre-trained model')
+train_loader = torch.utils.data.DataLoader(
+    dataset.listDataset('train.txt', shuffle=True,
+                   transform=transforms.Compose([
+                       transforms.Scale(160),
+                       transforms.ToTensor(),
+                   ])),
+    batch_size=args.batch_size, shuffle=True, **kwargs)
+test_loader = torch.utils.data.DataLoader(
+    dataset.listDataset('test.txt', shuffle=False,
+                   transform=transforms.Compose([
+                       transforms.Scale(160),
+                       transforms.ToTensor(),
+                   ])),
+    batch_size=args.batch_size, shuffle=False, **kwargs)
 
-best_prec1 = 0
+model = TinyYoloFace14Net()
+model.load_darknet_weights('face4.1nb_inc2_96.16.weights')
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.cnn1 = nn.Sequential(
-            nn.Conv2d( 3, 16, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(16),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(16, 32, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(32, 64, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(64, 128, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(128, 256, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(256, 512, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU(0.1, inplace=True),
-        )
-        self.cnn2 = nn.Sequential(
-            nn.Conv2d(512, 1024, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(1024),
-            nn.LeakyReLU(0.1, inplace=True),
-
-            nn.Conv2d(1024, 1024, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(1024),
-            nn.LeakyReLU(0.1, inplace=True),
-        )
-        self.fc = nn.Linear(1024, 10)
-
-    def forward(self, x):
-        x = F.max_pool2d(F.pad(self.cnn1(x), (0,1,0,1), mode='replicate'), 2, stride=1)
-        x = self.cnn2(x)
-        x = x.view(-1, 1024)
-        x = self.fc(x)
-        return x
-        #return F.log_softmax(x)
-
-def main():
-    global args, best_prec1
-    args = parser.parse_args()
-
-    # create model
-    if args.pretrained:
-        print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](pretrained=True)
-    else:
-        print("=> creating mnist model")
-        #model = models.__dict__[args.arch]()
-        model = Net()
-
+if args.cuda:
     model = torch.nn.DataParallel(model).cuda()
 
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-    cudnn.benchmark = True
+cudnn.benchmark = True
 
-    # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'test')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    train_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(traindir, transforms.Compose([
-            transforms.Scale(32),
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])),
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
-
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Scale(32),
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
-
-    # define loss function (criterion) and pptimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
-
-    if args.evaluate:
-        validate(val_loader, model, criterion)
-        return
-
-    for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
-
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
-
-        # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
-
-        # remember best prec@1 and save checkpoint
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-        }, is_best)
-
-
-def train(train_loader, model, criterion, optimizer, epoch):
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
-
-    # switch to train mode
+def train(epoch):
     model.train()
-
-    end = time.time()
-    for i, (input, target) in enumerate(train_loader):
-        # measure data loading time
-        data_time.update(time.time() - end)
-
-        target = target.cuda(async=True)
-        input_var = torch.autograd.Variable(input)
-        target_var = torch.autograd.Variable(target)
-
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
-
-        # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-        top5.update(prec5[0], input.size(0))
-
-        # compute gradient and do SGD step
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if args.cuda:
+            data, target = data.cuda(), target.cuda()
+        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
+        output = model(data)
+        loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
+        if batch_idx % args.log_interval == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(data), len(train_loader.dataset),
+                100. * batch_idx / len(train_loader), loss.data[0]))
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+def truths_length(truths):
+    for i in range(30):
+        if truths[i][1] == 0:
+            return i
 
-        if i % args.print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   epoch, i, len(train_loader), batch_time=batch_time,
-                   data_time=data_time, loss=losses, top1=top1, top5=top5))
+def test(epoch):
+    model.eval()
+    num_classes = model.module.num_classes
+    anchors = model.module.anchors
 
+    conf_thresh = 0.25
+    nms_thresh = 0.4
+    iou_thresh = 0.5
 
-def validate(val_loader, model, criterion):
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
+    total = 0.0
+    proposals = 0.0
+    correct = 0.0
 
-    # switch to evaluate mode
+    lineId = 0
+    for data, target in test_loader:
+        if args.cuda:
+            data = data.cuda()
+        data = Variable(data, volatile=True)
+        output = model(data).data
+        print('batch = %d' % (data.size(0)))
+        for i in range(output.size(0)):
+            lineId = lineId + 1
+
+            boxes = get_region_boxes(output[i], conf_thresh, num_classes, anchors)
+            boxes = nms(boxes, nms_thresh)
+            truths = target[i].view(-1, 5)
+            num_gts = truths_length(truths)
+
+     
+            total = total + num_gts
+    
+            for i in range(len(boxes)):
+                if boxes[i][4] > conf_thresh:
+                    proposals = proposals+1
+    
+            for i in range(num_gts):
+                x1 = truths[i][1] - truths[i][3]/2.0
+                y1 = truths[i][2] - truths[i][4]/2.0
+                x2 = truths[i][1] + truths[i][3]/2.0
+                y2 = truths[i][2] + truths[i][4]/2.0
+                box_gt = [x1, y1, x2, y2, 1.0]
+                best_iou = 0
+                for j in range(len(boxes)):
+                    iou = bbox_iou(box_gt, boxes[j])
+                    best_iou = max(iou, best_iou)
+                if best_iou > iou_thresh:
+                    correct = correct+1
+    
+            precision = 1.0*correct/proposals
+            recall = 1.0*correct/total
+            fscore = 2.0*precision*recall/(precision+recall)
+            print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
+
+def test_list(epoch):
     model.eval()
 
-    end = time.time()
-    for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
+    eval_wid = 160
+    eval_hei = 160
 
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
+    conf_thresh = 0.25
+    nms_thresh = 0.4
+    iou_thresh = 0.5
 
-        # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-        top5.update(prec5[0], input.size(0))
+    with open('test.txt') as fp:
+        lines = fp.readlines()
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+    total = 0.0
+    proposals = 0.0
+    correct = 0.0
+    lineId = 0
+    for line in lines:
+        lineId = lineId + 1
+        img_path = line.rstrip()
+        lab_path = img_path.replace('images', 'labels').replace('.jpg', '.txt')
+        truths = read_truths(lab_path)
+        #print(truths)
 
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5))
+        img = Image.open(img_path).convert('RGB').resize((eval_wid, eval_hei))
+        boxes = do_detect(model.module, img, conf_thresh, nms_thresh, args.cuda)
+        savename = "tmp/%06d.jpg" % (lineId)
+        print("save %s" % savename)
+        #plot_boxes(img, boxes, savename)
+        
+        total = total + truths.shape[0]
 
-    print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-          .format(top1=top1, top5=top5))
+        for i in range(len(boxes)):
+            if boxes[i][4] > conf_thresh:
+                proposals = proposals+1
 
-    return top1.avg
+        for i in range(truths.shape[0]):
+            x1 = truths[i][1] - truths[i][3]/2.0
+            y1 = truths[i][2] - truths[i][4]/2.0
+            x2 = truths[i][1] + truths[i][3]/2.0
+            y2 = truths[i][2] + truths[i][4]/2.0
+            box_gt = [x1, y1, x2, y2, 1.0]
+            best_iou = 0
+            for j in range(len(boxes)):
+                iou = bbox_iou(box_gt, boxes[j])
+                best_iou = max(iou, best_iou)
+            if best_iou > iou_thresh:
+                correct = correct+1
 
+        precision = 1.0*correct/proposals
+        recall = 1.0*correct/total
+        fscore = 2.0*precision*recall/(precision+recall)
+        print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+    return fscore
 
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
-
-
-if __name__ == '__main__':
-    main()
+#test(0)
+test_list(0)
+#for epoch in range(1, args.epochs + 1):
+    #train(epoch)
+    #test_list(epoch)
+    #test(epoch)

@@ -52,6 +52,8 @@ def nms(boxes, nms_thresh):
 
 def get_region_boxes(output, conf_thresh, num_classes, anchors):
     num_anchors = len(anchors)/2
+    if output.dim() == 3:
+        output = output.unsqueeze(0)
     assert(output.size(0) == 1)
     assert(output.size(1) == (5+num_classes)*num_anchors)
     h = output.size(2)
@@ -99,7 +101,7 @@ def load_conv(buf, start, conv_model):
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
     return start
 
-def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=0):
+def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=1):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
     bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
@@ -107,7 +109,7 @@ def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=0):
     bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
     running_var = torch.from_numpy(buf[start:start+num_b]); start = start + num_b
     if same_as_darknet:
-        bn_model.running_var.copy_((running_var.sqrt() + .00001).pow(2) - 0.00001)
+        bn_model.running_var.copy_((running_var.sqrt() + .000001).pow(2) - 0.00001)
     else:
         bn_model.running_var.copy_(running_var)
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
@@ -127,3 +129,23 @@ def read_truths(lab_path):
         return truths
     else:
         return np.array([])
+
+def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
+    model.eval()
+    if isinstance(img, Image.Image):
+        width = img.width
+        height = img.height
+        img = torch.ByteTensor(torch.ByteStorage.from_buffer(img.tobytes()))
+        img = img.view(height, width, 3).transpose(0,1).transpose(0,2).contiguous()
+        img = img.view(1, 3, height, width)
+        img = img.float().div(255.0)
+    if use_cuda:
+        img = img.cuda()
+    img = torch.autograd.Variable(img)
+
+    output = model(img)
+    output = output.data
+    boxes = get_region_boxes(output, conf_thresh, model.num_classes, model.anchors)
+    boxes = nms(boxes, nms_thresh)
+    return boxes
+

@@ -9,24 +9,6 @@ from tiny_yolo_face14 import TinyYoloFace14Net
 from utils import *
 
 use_cuda = 1
-
-def do_detect(model, img, conf_thresh, nms_thresh):
-    model.eval()
-    width = img.width
-    height = img.height
-    img = torch.ByteTensor(torch.ByteStorage.from_buffer(img.tobytes()))
-    img = img.view(height, width, 3).transpose(0,1).transpose(0,2).contiguous()
-    img = img.view(1, 3, height, width)
-    img = img.float().div(255.0)
-    if use_cuda:
-        img = img.cuda()
-    img = Variable(img)
-
-    output = model(img)
-    output = output.data
-    boxes = get_region_boxes(output, conf_thresh, model.num_classes, model.anchors)
-    boxes = nms(boxes, nms_thresh)
-    return boxes
    
 def demo(tiny_yolo_weight, img_path):
     m = TinyYoloNet() 
@@ -39,7 +21,7 @@ def demo(tiny_yolo_weight, img_path):
 
     img = Image.open(img_path).convert('RGB')
     sized = img.resize((416,416))
-    boxes = do_detect(m, sized, 0.5, 0.4)
+    boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
     plot_boxes(img, boxes, 'predict.jpg')    
 
 def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
@@ -70,7 +52,7 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
         #print(truths)
 
         img = Image.open(img_path).convert('RGB').resize((eval_wid, eval_hei))
-        boxes = do_detect(m, img, conf_thresh, nms_thresh)
+        boxes = do_detect(m, img, conf_thresh, nms_thresh, use_cuda)
         savename = "tmp/%06d.jpg" % (lineId)
         print("save %s" % savename)
         plot_boxes(img, boxes, savename)
