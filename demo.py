@@ -7,7 +7,7 @@ from torch.autograd import Variable
 from tiny_yolo import TinyYoloNet
 from tiny_yolo_face14 import TinyYoloFace14Net
 from utils import *
-from darknet import Darknet
+from darknet import Darknet, DarknetSimple
 
 use_cuda = 1
    
@@ -27,7 +27,7 @@ def demo(tiny_yolo_weight, img_path):
     plot_boxes(img, boxes, 'predict.jpg')    
 
 def demo2(cfgfile, weightfile, img_path):
-    m = Darknet(cfgfile) 
+    m = DarknetSimple(cfgfile) 
     m.float()
     m.load_weights(weightfile)
     m.eval()
@@ -39,6 +39,22 @@ def demo2(cfgfile, weightfile, img_path):
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
     plot_boxes(img, boxes, 'predict.jpg')    
+
+def demo3(cfgfile, weightfile, img_path):
+    m = Darknet(cfgfile) 
+    m.float()
+    print(m)
+    m.load_weights(weightfile)
+    m.eval()
+    
+    if use_cuda:
+        m.cuda()
+
+    img = Image.open(img_path).convert('RGB')
+    sized = img.resize((416,416))
+    boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
+    plot_boxes(img, boxes, 'predict.jpg')    
+
 
 def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
     m = TinyYoloFace14Net()
@@ -100,5 +116,6 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
 ############################################
 if __name__ == '__main__':
     #demo('tiny-yolo-voc.weights', 'data/person.jpg')
-    demo2('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
+    #demo2('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
+    demo3('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
     #eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)

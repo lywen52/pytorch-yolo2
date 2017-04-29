@@ -35,7 +35,7 @@ def parse_cfg(cfgfile):
     fp.close()
     return blocks
 
-def create_darknet(blocks):
+def create_darknet_simple(blocks):
     model = nn.Sequential()
     loss = RegionLoss()
 
@@ -83,7 +83,60 @@ def create_darknet(blocks):
 
     return model, loss
 
-def load_darknet_weights(blocks, model, weightfile):
+def create_darknet(blocks):
+    models = nn.ModuleList()
+
+    prev_filters = 3
+    conv_id = 0
+    for block in blocks:
+        if block['type'] == 'net':
+            continue
+        elif block['type'] == 'convolutional':
+            conv_id = conv_id + 1
+            batch_normalize = int(block['batch_normalize'])
+            filters = int(block['filters'])
+            kernel_size = int(block['size'])
+            stride = int(block['stride'])
+            is_pad = int(block['pad'])
+            pad = (kernel_size-1)/2 if is_pad else 0
+            activation = block['activation']
+            model = nn.Sequential()
+            if batch_normalize:
+                model.add_module('conv{0}'.format(conv_id), nn.Conv2d(prev_filters, filters, kernel_size, stride, pad, bias=False))
+                model.add_module('bn{0}'.format(conv_id), nn.BatchNorm2d(filters))
+            else:
+                model.add_module('conv{0}'.format(conv_id), nn.Conv2d(prev_filters, filters, kernel_size, stride, pad))
+            if activation == 'leaky':
+                model.add_module('leaky{0}'.format(conv_id), nn.LeakyReLU(0.1, inplace=True))
+            prev_filters = filters
+            models.append(model)
+        elif block['type'] == 'maxpool':
+            pool_size = int(block['size'])
+            stride = int(block['stride'])
+            if stride > 1:
+                model = nn.MaxPool2d(pool_size, stride)
+            else:
+                model = MaxPoolStride1()
+            models.append(model)
+        elif block['type'] == 'region':
+            loss = RegionLoss()
+            anchors = block['anchors'].split(',')
+            loss.anchors = [float(i) for i in anchors]
+            loss.num_classes = int(block['classes'])
+            loss.num_anchors = int(block['num'])
+            assert(loss.num_anchors == len(loss.anchors)/2)
+            loss.object_scale = float(block['object_scale'])
+            loss.noobject_scale = float(block['noobject_scale'])
+            loss.class_scale = float(block['class_scale'])
+            loss.coord_scale = float(block['coord_scale'])
+            models.append(model)
+        else:
+            print('unknown type %s' % (block['type']))
+
+    return models
+
+
+def load_darknet_weights_simple(blocks, model, weightfile):
     ind = 0
     start = 4
     buf = np.fromfile(weightfile, dtype = np.float32)
@@ -108,6 +161,29 @@ def load_darknet_weights(blocks, model, weightfile):
         else:
             print('unknown type %s' % (block['type']))
 
+def load_darknet_weights(blocks, models, weightfile):
+    ind = 0
+    start = 4
+    buf = np.fromfile(weightfile, dtype = np.float32)
+    ind = -2
+    for block in blocks:
+        ind = ind + 1
+        if block['type'] == 'net':
+            continue
+        elif block['type'] == 'convolutional':
+            model = models[ind]
+            batch_normalize = int(block['batch_normalize'])
+            if batch_normalize:
+                start = load_conv_bn(buf, start, model[0], model[1])
+            else:
+                start = load_conv(buf, start, model[0])
+        elif block['type'] == 'maxpool':
+            ind = ind
+        elif block['type'] == 'region':
+            ind = ind
+        else:
+            print('unknown type %s' % (block['type']))
+
 class MaxPoolStride1(nn.Module):
     def __init__(self):
         super(MaxPoolStride1, self).__init__()
@@ -116,33 +192,70 @@ class MaxPoolStride1(nn.Module):
         x = F.max_pool2d(F.pad(x, (0,1,0,1), mode='replicate'), 2, stride=1)
         return x
 
-class Darknet(nn.Module):
+class DarknetSimple(nn.Module):
     def __init__(self, cfgfile):
-        super(Darknet, self).__init__()
+        super(DarknetSimple, self).__init__()
         self.blocks = parse_cfg(cfgfile)
         #print(self.blocks)
-        self.model, self.loss = create_darknet(self.blocks)
+        self.model, self.loss = create_darknet_simple(self.blocks)
         print(self.model)
         self.num_classes = self.loss.num_classes
         self.anchors = self.loss.anchors
 
     def load_weights(self, weightfile):
-        load_darknet_weights(self.blocks, self.model, weightfile)
-#        buf = np.fromfile(weightfile, dtype = np.float32)
-#        start = 4
-#        
-#        start = load_conv_bn(buf, start, self.model[0], self.model[1])
-#        start = load_conv_bn(buf, start, self.model[4], self.model[5])
-#        start = load_conv_bn(buf, start, self.model[8], self.model[9])
-#        start = load_conv_bn(buf, start, self.model[12], self.model[13])
-#        start = load_conv_bn(buf, start, self.model[16], self.model[17])
-#        start = load_conv_bn(buf, start, self.model[20], self.model[21])
-#        
-#        start = load_conv_bn(buf, start, self.model[24], self.model[25])
-#        start = load_conv_bn(buf, start, self.model[27], self.model[28])
-#        start = load_conv(buf, start, self.model[30])
-
+        load_darknet_weights_simple(self.blocks, self.model, weightfile)
 
     def forward(self, x):
         x = self.model(x)
+        return x
+
+class Darknet(nn.Module):
+    def __init__(self, cfgfile):
+        super(Darknet,self).__init__()
+        self.blocks = parse_cfg(cfgfile)
+        self.models = create_darknet(self.blocks) # merge conv, bn,leaky
+        self.loss = 0
+        for block in self.blocks:
+            if block['type'] == 'region':
+                anchors = block['anchors'].split(',')
+                self.num_classes = int(block['classes'])
+                self.anchors = [float(i) for i in anchors]
+
+    def load_weights(self, weightfile):
+        load_darknet_weights(self.blocks, self.models, weightfile)
+    def forward(self, x):
+        #for model in self.models:
+        for i in range(len(self.models)-1):
+            x = self.models[i](x)
+        return x
+
+    def forward2(self, x):
+        ind = -2
+        self.loss = 0
+        outputs = dict()
+        for block in self.blocks:
+            ind = ind + 1
+            if block['type'] == 'net':
+                continue
+            elif block['type'] == 'convolutional' or block['type'] == 'maxpool':
+                x = self.models(x)
+                outputs[ind] = x
+            elif block['type'] == 'route':
+                layers = block['layers'].split(',')
+                layers = [int(i) if int(i) > 0 else int(i)+ind for i in layers]
+                if len(layers) == 1:
+                    x = outputs[layers[0]]
+                    outputs[ind] = x
+                elif len(layers) == 2:
+                    x1 = outputs[layers[0]]
+                    x2 = outputs[layers[1]]
+                    x = torch.cat(x1,x2,1)
+                    outputs[ind] = x
+            elif block['type'] == 'region':
+                x = self.models(x)
+                outputs[ind] = x
+                if self.loss != 0:
+                    self.loss = self.loss + x
+                else:
+                    self.loss = self.loss + x
         return x
