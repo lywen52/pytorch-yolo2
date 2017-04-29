@@ -20,7 +20,7 @@ parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=10, metavar='N',
+parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                     help='learning rate (default: 0.01)')
@@ -40,7 +40,7 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 
-kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
+kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 
 print('batch_size = %d' % (args.batch_size))
 print('test_batch_size = %d' % (args.test_batch_size))
@@ -48,14 +48,14 @@ print('test_batch_size = %d' % (args.test_batch_size))
 train_loader = torch.utils.data.DataLoader(
     dataset.listDataset('train.txt', shuffle=True,
                    transform=transforms.Compose([
-                       transforms.Scale(416),
+                       transforms.Scale(160),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
-    dataset.listDataset('test.txt', shuffle=False,
+    dataset.listDataset('test_small.txt', shuffle=False,
                    transform=transforms.Compose([
-                       transforms.Scale(416),
+                       transforms.Scale(160),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=False, **kwargs)
@@ -63,14 +63,14 @@ test_loader = torch.utils.data.DataLoader(
 model = TinyYoloFace14Net()
 region_loss = RegionLoss(model.num_classes, model.anchors)
 
-model.load_darknet_weights('face4.1nb_inc2_96.16.weights')
+#model.load_darknet_weights('face4.1nb_inc2_96.16.weights')
 
 if args.cuda:
     model = torch.nn.DataParallel(model).cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-cudnn.benchmark = True
+#cudnn.benchmark = True
 
 def train(epoch):
     model.train()
@@ -79,6 +79,9 @@ def train(epoch):
             sys.stdout.write(".")
         if (batch_idx+1) % 100 == 0:
             print('')
+        if (batch_idx+1) % 1000 == 0:
+            test(epoch)
+            model.train()
 
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -91,7 +94,7 @@ def train(epoch):
 
 def test(epoch):
     def truths_length(truths):
-        for i in range(30):
+        for i in range(50):
             if truths[i][1] == 0:
                 return i
 
@@ -142,11 +145,12 @@ def test(epoch):
                 if best_iou > iou_thresh:
                     correct = correct+1
     
-            precision = 1.0*correct/proposals
-            recall = 1.0*correct/total
-            fscore = 2.0*precision*recall/(precision+recall)
+            precision = 1.0*correct/(proposals+0.000001)
+            recall = 1.0*correct/(total+0.000001)
+            fscore = 2.0*precision*recall/(precision+recall+0.000001)
             print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
 
+test(0)
 for epoch in range(1, args.epochs + 1):
     train(epoch)
     test(epoch)

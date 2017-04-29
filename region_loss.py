@@ -17,16 +17,16 @@ def build_targets(target, anchors, nW, nH):
 
     nGT = 0
     for b in range(nB):
-        for t in range(30):
+        for t in range(50):
             if target[b][t*5+1] == 0:
                 break
             nGT = nGT + 1
             best_iou = 0.0
-            best_n = 0
+            best_n = -1
             i = int(target[b][t*5+1] * nW)
             j = int(target[b][t*5+2] * nH)
             w = target[b][t*5+3]*nW
-            h = target[b][t*5+3]*nH
+            h = target[b][t*5+4]*nH
             gt_box = [0, 0, w, h]
             for n in range(nA):
                 anchor_box = [0, 0, anchors[2*n], anchors[2*n+1]]
@@ -39,7 +39,7 @@ def build_targets(target, anchors, nW, nH):
             ty[b][best_n][j][i] = target[b][t*5+2] * nH - j
             tw[b][best_n][j][i] = math.log(w/anchors[2*best_n])
             th[b][best_n][j][i] = math.log(h/anchors[2*best_n+1])
-            tconf[b][best_n][j][i] = iou
+            tconf[b][best_n][j][i] = best_iou
 
     return nGT, mask, tx, ty, tw, th, tconf
 

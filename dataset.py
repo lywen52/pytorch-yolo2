@@ -30,14 +30,17 @@ class listDataset(Dataset):
         assert index <= len(self), 'index range error'
         imgpath = self.lines[index].rstrip()
         labpath = imgpath.replace('images', 'labels').replace('.jpg', '.txt')
-        label = torch.zeros(30*5)
+        label = torch.zeros(50*5)
 
         if os.path.getsize(labpath):
             tmp = torch.from_numpy(np.loadtxt(labpath))
             tmp = tmp.view(-1)
             tsz = tmp.numel()
-            assert(tsz <= 30*5)
-            label[0:tsz] = tmp
+            print('labpath = %s , tsz = %d' % (labpath, tsz))
+            if tsz > 50*5:
+                label = tmp[0:50*5]
+            else:
+                label[0:tsz] = tmp
 
         img = Image.open(imgpath).convert('RGB')
 
