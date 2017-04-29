@@ -36,7 +36,7 @@ class listDataset(Dataset):
             tmp = torch.from_numpy(np.loadtxt(labpath))
             tmp = tmp.view(-1)
             tsz = tmp.numel()
-            print('labpath = %s , tsz = %d' % (labpath, tsz))
+            #print('labpath = %s , tsz = %d' % (labpath, tsz))
             if tsz > 50*5:
                 label = tmp[0:50*5]
             else:

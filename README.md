@@ -1,3 +1,25 @@
+#### Detection Using A Pre-Trained Model
+```
+wget http://pjreddie.com/media/files/tiny-yolo-voc.weights
+python detect.py cfg/tiny-yolo-voc.cfg tiny-yolo-voc.weights data/dog.jpg
+```
+You will see some output like this:
+```
+layer     filters    size              input                output
+    0 conv     32  3 x 3 / 1   416 x 416 x   3   ->   416 x 416 x  32
+    1 max          2 x 2 / 2   416 x 416 x  32   ->   208 x 208 x  32
+    .......
+   29 conv    425  1 x 1 / 1    13 x  13 x1024   ->    13 x  13 x 425
+   30 detection
+Loading weights from yolo.weights...Done!
+data/dog.jpg: Predicted in 0.016287 seconds.
+car: 54%
+bicycle: 51%
+dog: 56%
+```
+
+
+
 #### yolo2
 This repository can evaluate darknent trained model on pytorch which loads darkent trained weight file directly. See test_tiny_yolo.py as an example.
 

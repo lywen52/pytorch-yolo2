@@ -3,14 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 from utils import *
+from darknet import MaxPoolStride1
 
 class TinyYoloNet(nn.Module):
     def __init__(self):
         super(TinyYoloNet, self).__init__()
         self.num_classes = 20
         self.anchors = [1.08,1.19,  3.42,4.41,  6.63,11.38,  9.42,5.11,  16.62,10.52]
+        num_anchors = len(self.anchors)/2
+        num_output = (5+self.num_classes)*num_anchors
 
-        self.cnn1 = nn.Sequential(OrderedDict([
+        self.cnn = nn.Sequential(OrderedDict([
             # conv1
             ('conv1', nn.Conv2d( 3, 16, 3, 1, 1, bias=False)),
             ('bn1', nn.BatchNorm2d(16)),
@@ -45,12 +48,8 @@ class TinyYoloNet(nn.Module):
             ('conv6', nn.Conv2d(256, 512, 3, 1, 1, bias=False)),
             ('bn6', nn.BatchNorm2d(512)),
             ('leaky6', nn.LeakyReLU(0.1, inplace=True)),
-        ]))
+            ('pool6', MaxPoolStride1()),
 
-        num_anchors = len(self.anchors)/2
-        num_output = (5+self.num_classes)*num_anchors
-
-        self.cnn2 = nn.Sequential(OrderedDict([
             # conv7
             ('conv7', nn.Conv2d(512, 1024, 3, 1, 1, bias=False)),
             ('bn7', nn.BatchNorm2d(1024)),
@@ -66,24 +65,22 @@ class TinyYoloNet(nn.Module):
         ]))
 
     def forward(self, x):
-        x = F.max_pool2d(F.pad(self.cnn1(x), (0,1,0,1), mode='replicate'), 2, stride=1)
-        x = self.cnn2(x)
+        x = self.cnn(x)
         return x
-        #return F.log_softmax(x)
 
     def load_darknet_weights(self, path):
         #buf = np.fromfile('tiny-yolo-voc.weights', dtype = np.float32)
         buf = np.fromfile(path, dtype = np.float32)
         start = 4
         
-        start = load_conv_bn(buf, start, self.cnn1[0], self.cnn1[1])
-        start = load_conv_bn(buf, start, self.cnn1[4], self.cnn1[5])
-        start = load_conv_bn(buf, start, self.cnn1[8], self.cnn1[9])
-        start = load_conv_bn(buf, start, self.cnn1[12], self.cnn1[13])
-        start = load_conv_bn(buf, start, self.cnn1[16], self.cnn1[17])
-        start = load_conv_bn(buf, start, self.cnn1[20], self.cnn1[21])
+        start = load_conv_bn(buf, start, self.cnn[0], self.cnn[1])
+        start = load_conv_bn(buf, start, self.cnn[4], self.cnn[5])
+        start = load_conv_bn(buf, start, self.cnn[8], self.cnn[9])
+        start = load_conv_bn(buf, start, self.cnn[12], self.cnn[13])
+        start = load_conv_bn(buf, start, self.cnn[16], self.cnn[17])
+        start = load_conv_bn(buf, start, self.cnn[20], self.cnn[21])
         
-        start = load_conv_bn(buf, start, self.cnn2[0], self.cnn2[1])
-        start = load_conv_bn(buf, start, self.cnn2[3], self.cnn2[4])
-        start = load_conv(buf, start, self.cnn2[6])
+        start = load_conv_bn(buf, start, self.cnn[24], self.cnn[25])
+        start = load_conv_bn(buf, start, self.cnn[27], self.cnn[28])
+        start = load_conv(buf, start, self.cnn[30])
 

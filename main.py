@@ -72,6 +72,12 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
 #cudnn.benchmark = True
 
+def adjust_learning_rate(optimizer, epoch):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = args.lr * (0.1 ** (epoch // 30))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -91,6 +97,7 @@ def train(epoch):
         loss = region_loss(output, target)
         loss.backward()
         optimizer.step()
+    adjust_learning_rate(optimizer, epoch)
 
 def test(epoch):
     def truths_length(truths):

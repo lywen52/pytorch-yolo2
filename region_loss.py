@@ -44,7 +44,7 @@ def build_targets(target, anchors, nW, nH):
     return nGT, mask, tx, ty, tw, th, tconf
 
 class RegionLoss(nn.Module):
-    def __init__(self, num_classes, anchors):
+    def __init__(self, num_classes=0, anchors=[]):
         super(RegionLoss, self).__init__()
         self.num_classes = num_classes
         self.anchors = anchors
