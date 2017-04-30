@@ -44,6 +44,8 @@ def demo3(cfgfile, weightfile, img_path):
     m = Darknet(cfgfile) 
     m.float()
     print(m)
+    print(m.models)
+    print(m.blocks)
     m.load_weights(weightfile)
     m.eval()
     

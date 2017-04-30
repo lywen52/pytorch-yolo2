@@ -129,7 +129,7 @@ def create_darknet(blocks):
             loss.noobject_scale = float(block['noobject_scale'])
             loss.class_scale = float(block['class_scale'])
             loss.coord_scale = float(block['coord_scale'])
-            models.append(model)
+            models.append(loss)
         else:
             print('unknown type %s' % (block['type']))
 
@@ -223,13 +223,13 @@ class Darknet(nn.Module):
 
     def load_weights(self, weightfile):
         load_darknet_weights(self.blocks, self.models, weightfile)
-    def forward(self, x):
+    def forward1(self, x):
         #for model in self.models:
         for i in range(len(self.models)-1):
             x = self.models[i](x)
         return x
 
-    def forward2(self, x):
+    def forward(self, x):
         ind = -2
         self.loss = 0
         outputs = dict()
@@ -238,7 +238,7 @@ class Darknet(nn.Module):
             if block['type'] == 'net':
                 continue
             elif block['type'] == 'convolutional' or block['type'] == 'maxpool':
-                x = self.models(x)
+                x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
                 layers = block['layers'].split(',')
@@ -252,7 +252,8 @@ class Darknet(nn.Module):
                     x = torch.cat(x1,x2,1)
                     outputs[ind] = x
             elif block['type'] == 'region':
-                x = self.models(x)
+                continue
+                x = self.models[ind](x)
                 outputs[ind] = x
                 if self.loss != 0:
                     self.loss = self.loss + x
