@@ -7,6 +7,13 @@ from PIL import Image, ImageDraw
 def sigmoid(x):
     return 1.0/(math.exp(-x)+1.)
 
+def softmax(x):
+    max_x = torch.max(x)
+    x = x - max_x
+    x = torch.exp(x)
+    return x/x.sum()
+
+
 def bbox_iou(box1, box2, x1y1x2y2=True):
     if x1y1x2y2:
         mx = min(box1[0], box2[0])
@@ -78,6 +85,10 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                 bw = anchors[2*i] * math.exp(output[0][start+2][cy][cx])
                 bh = anchors[2*i+1] * math.exp(output[0][start+3][cy][cx])
                 det_conf = sigmoid(output[0][start+4][cy][cx]) 
+                cls_confs = softmax(output[0][start+5:start+5+num_classes][cy][cx])
+                cls_conf, cls_id = torch.max(cls_confs, 0)
+                cls_conf = cls_conf[0]
+                cls_id = cls_id[0]
                 x1 = bcx - bw/2
                 y1 = bcy - bh/2
                 x2 = bcx + bw/2
@@ -87,7 +98,7 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                 x2 = min(x2, w)
                 y2 = min(y2, h)
                 if det_conf > conf_thresh:
-                    box = [x1/w, y1/h, x2/w, y2/h, det_conf]
+                    box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
                     boxes.append(box)
     return boxes
 
@@ -102,6 +113,10 @@ def plot_boxes(img, boxes, savename, class_names = None):
         x2 = box[2] * width
         y2 = box[3] * height
         draw.rectangle([x1, y1, x2, y2])
+        if len(box) >= 7:
+            cls_conf = box[5]
+            cls_id = box[6]
+            print('%s: %f' % (class_names[cls_id], cls_conf))
     img.save(savename)
 
 def load_conv(buf, start, conv_model):
@@ -136,6 +151,15 @@ def read_truths(lab_path):
         return truths
     else:
         return np.array([])
+
+def load_class_names(namesfile):
+    class_names = []
+    with open(namesfile, 'r') as fp:
+        lines = fp.readlines()
+    for line in lines:
+        line = line.rstrip()
+        class_names.append(line)
+    return class_names
 
 def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
     model.eval()
