@@ -71,6 +71,8 @@ class Darknet(nn.Module):
         self.model, self.loss = self.create_network(self.blocks)
         self.num_classes = self.loss.num_classes
         self.anchors = self.loss.anchors
+        self.width = int(self.blocks[0]['width'])
+        self.height = int(self.blocks[0]['height'])
 
     def forward(self, x):
         x = self.model(x)

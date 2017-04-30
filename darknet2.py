@@ -14,6 +14,9 @@ class Darknet2(nn.Module):
         self.models = self.create_network(self.blocks) # merge conv, bn,leaky
         self.loss = 0
         for block in self.blocks:
+            if block['type'] == 'net':
+                self.width = int(block['width'])
+                self.height = int(block['height'])
             if block['type'] == 'region':
                 anchors = block['anchors'].split(',')
                 self.num_classes = int(block['classes'])

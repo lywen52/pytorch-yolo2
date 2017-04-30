@@ -91,7 +91,7 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                     boxes.append(box)
     return boxes
 
-def plot_boxes(img, boxes, savename):
+def plot_boxes(img, boxes, savename, class_names = None):
     width = img.width
     height = img.height
     draw = ImageDraw.Draw(img)
