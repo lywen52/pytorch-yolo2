@@ -132,7 +132,6 @@ def test(epoch):
             boxes = nms(boxes, nms_thresh)
             truths = target[i].view(-1, 5)
             num_gts = truths_length(truths)
-
      
             total = total + num_gts
     
