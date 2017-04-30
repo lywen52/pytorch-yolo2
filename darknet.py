@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -7,8 +8,7 @@ from utils import load_conv_bn, load_conv
 def parse_cfg(cfgfile):
     blocks = []
     fp = open(cfgfile, 'r')
-    block = dict()
-    block['type'] = 'empty'
+    block =  None
     line = fp.readline()
     while line != '':
         line = line.rstrip()
@@ -16,7 +16,7 @@ def parse_cfg(cfgfile):
             line = fp.readline()
             continue        
         elif line[0] == '[':
-            if block['type'] != 'empty':
+            if block:
                 blocks.append(block)
             block = dict()
             block['type'] = line.lstrip('[').rstrip(']')
@@ -30,7 +30,7 @@ def parse_cfg(cfgfile):
             block[key] = value
         line = fp.readline()
 
-    if block['type'] != 'empty':
+    if block:
         blocks.append(block)
     fp.close()
     return blocks
@@ -87,6 +87,7 @@ def create_darknet(blocks):
     models = nn.ModuleList()
 
     prev_filters = 3
+    out_filters =[]
     conv_id = 0
     for block in blocks:
         if block['type'] == 'net':
@@ -109,6 +110,7 @@ def create_darknet(blocks):
             if activation == 'leaky':
                 model.add_module('leaky{0}'.format(conv_id), nn.LeakyReLU(0.1, inplace=True))
             prev_filters = filters
+            out_filters.append(prev_filters)
             models.append(model)
         elif block['type'] == 'maxpool':
             pool_size = int(block['size'])
@@ -117,7 +119,24 @@ def create_darknet(blocks):
                 model = nn.MaxPool2d(pool_size, stride)
             else:
                 model = MaxPoolStride1()
+            out_filters.append(prev_filters)
             models.append(model)
+        elif block['type'] == 'reorg':
+            stride = int(block['stride'])
+            prev_filters = stride * stride * prev_filters
+            out_filters.append(prev_filters)
+            models.append(Reorg(stride))
+        elif block['type'] == 'route':
+            layers = block['layers'].split(',')
+            ind = len(models)
+            layers = [int(i) if int(i) > 0 else int(i)+ind for i in layers]
+            if len(layers) == 1:
+                prev_filters = out_filters[layers[0]]
+            elif len(layers) == 2:
+                assert(layers[0] == ind - 1)
+                prev_filters = out_filters[layers[0]] + out_filters[layers[1]]
+            out_filters.append(prev_filters)
+            models.append(nn.ReLU())
         elif block['type'] == 'region':
             loss = RegionLoss()
             anchors = block['anchors'].split(',')
@@ -129,6 +148,7 @@ def create_darknet(blocks):
             loss.noobject_scale = float(block['noobject_scale'])
             loss.class_scale = float(block['class_scale'])
             loss.coord_scale = float(block['coord_scale'])
+            out_filters.append(prev_filters)
             models.append(loss)
         else:
             print('unknown type %s' % (block['type']))
@@ -178,11 +198,35 @@ def load_darknet_weights(blocks, models, weightfile):
             else:
                 start = load_conv(buf, start, model[0])
         elif block['type'] == 'maxpool':
-            ind = ind
+            pass
+        elif block['type'] == 'reorg':
+            pass
+        elif block['type'] == 'route':
+            pass
         elif block['type'] == 'region':
-            ind = ind
+            pass
         else:
             print('unknown type %s' % (block['type']))
+
+class Reorg(nn.Module):
+    def __init__(self, stride=2):
+        super(Reorg, self).__init__()
+        self.stride = stride
+
+    def forward(self, x):
+        stride = self.stride
+        assert(x.data.dim() == 4)
+        B = x.data.size(0)
+        C = x.data.size(1)
+        H = x.data.size(2)
+        W = x.data.size(3)
+        assert(H % stride == 0)
+        assert(W % stride == 0)
+        x = x.view(B, C, H/stride, stride, W/stride, stride).transpose(3, 4).contiguous()
+        x = x.view(B, C, H*W/(stride*stride), stride*stride).transpose(2,3).contiguous()
+        x = x.view(B, C*stride*stride, H/stride, W/stride)
+        return x
+
 
 class MaxPoolStride1(nn.Module):
     def __init__(self):
@@ -237,7 +281,7 @@ class Darknet(nn.Module):
             ind = ind + 1
             if block['type'] == 'net':
                 continue
-            elif block['type'] == 'convolutional' or block['type'] == 'maxpool':
+            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg':
                 x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
@@ -249,7 +293,7 @@ class Darknet(nn.Module):
                 elif len(layers) == 2:
                     x1 = outputs[layers[0]]
                     x2 = outputs[layers[1]]
-                    x = torch.cat(x1,x2,1)
+                    x = torch.cat((x1,x2),1)
                     outputs[ind] = x
             elif block['type'] == 'region':
                 continue
@@ -259,4 +303,6 @@ class Darknet(nn.Module):
                     self.loss = self.loss + x
                 else:
                     self.loss = self.loss + x
+            else:
+                print('' % (block['type']))
         return x

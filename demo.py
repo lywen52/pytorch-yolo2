@@ -119,5 +119,6 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
 if __name__ == '__main__':
     #demo('tiny-yolo-voc.weights', 'data/person.jpg')
     #demo2('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
-    demo3('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
+    #demo3('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg')
+    demo3('cfg/yolo-voc.cfg', 'yolo-voc.weights', 'data/person.jpg')
     #eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
