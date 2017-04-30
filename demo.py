@@ -4,14 +4,13 @@ from utils import *
 from darknet import Darknet
 from darknet2 import Darknet2
 
-use_cuda = 1
-   
 def demo1(tiny_yolo_weight, img_path):
     m = TinyYoloNet() 
     m.float()
     m.eval()
     m.load_darknet_weights(tiny_yolo_weight)
     
+    use_cuda = 1
     if use_cuda:
         m.cuda()
 
@@ -26,6 +25,7 @@ def demo2(cfgfile, weightfile, img_path):
     m.load_weights(weightfile)
     m.eval()
     
+    use_cuda = 1
     if use_cuda:
         m.cuda()
 
@@ -40,6 +40,7 @@ def demo3(cfgfile, weightfile, img_path):
     m.load_weights(weightfile)
     m.eval()
     
+    use_cuda = 1
     if use_cuda:
         m.cuda()
 
@@ -47,8 +48,6 @@ def demo3(cfgfile, weightfile, img_path):
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
     plot_boxes(img, boxes, 'predict3.jpg')    
-
-
 
 ############################################
 if __name__ == '__main__':

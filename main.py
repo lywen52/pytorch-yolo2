@@ -13,6 +13,7 @@ from tiny_yolo_face14 import TinyYoloFace14Net
 import dataset
 from utils import *
 from region_loss import RegionLoss
+from darknet import Darknet
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -45,20 +46,23 @@ kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
     dataset.listDataset('train.txt', shuffle=True,
                    transform=transforms.Compose([
-                       transforms.Scale(160),
+                       transforms.Scale(416),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
     dataset.listDataset('test_small.txt', shuffle=False,
                    transform=transforms.Compose([
-                       transforms.Scale(160),
+                       transforms.Scale(416),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=False, **kwargs)
 
-model = TinyYoloFace14Net()
-region_loss = RegionLoss(model.num_classes, model.anchors)
+#model = TinyYoloFace14Net()
+#region_loss = RegionLoss(model.num_classes, model.anchors)
+model = Darknet('face4.1nb_inc2_96.16.cfg')
+model.float()
+region_loss = model.loss
 
 #model.load_darknet_weights('face4.1nb_inc2_96.16.weights')
 

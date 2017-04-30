@@ -1,13 +1,20 @@
 from PIL import Image, ImageDraw
 from utils import *
 from tiny_yolo_face14 import TinyYoloFace14Net
+from darknet import Darknet
 
-def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
-    m = TinyYoloFace14Net()
+def eval_list(cfgfile, weightfile, img_list, eval_wid, eval_hei):
+    #m = TinyYoloFace14Net()
+    #m.float()
+    #m.eval()
+    #m.load_darknet_weights(tiny_yolo_weight)
+
+    m = Darknet(cfgfile)
     m.float()
     m.eval()
-    m.load_darknet_weights(tiny_yolo_weight)
+    m.load_weights(weightfile)
 
+    use_cuda = 1
     if use_cuda:
         m.cuda()
 
@@ -60,4 +67,6 @@ def eval_list(tiny_yolo_weight, img_list, eval_wid, eval_hei):
         print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
 
 if __name__ == '__main__':
-    eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
+    #eval_list('face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
+    eval_list('face4.1nb_inc2_96.16_nobn.cfg', 'face4.1nb_inc2_96.16_nobn.weights', 'test.txt', 160, 160)
+    #eval_list('face4.1nb_inc2_96.16.cfg', 'face4.1nb_inc2_96.16.weights', 'test.txt', 160, 160)
