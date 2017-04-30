@@ -42,9 +42,6 @@ if args.cuda:
 
 kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 
-print('batch_size = %d' % (args.batch_size))
-print('test_batch_size = %d' % (args.test_batch_size))
-
 train_loader = torch.utils.data.DataLoader(
     dataset.listDataset('train.txt', shuffle=True,
                    transform=transforms.Compose([

@@ -151,5 +151,3 @@ class Darknet2(nn.Module):
                 pass
             else:
                 print('unknown type %s' % (block['type']))
-
-

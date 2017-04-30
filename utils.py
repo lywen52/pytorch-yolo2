@@ -111,7 +111,7 @@ def load_conv(buf, start, conv_model):
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
     return start
 
-def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=1):
+def load_conv_bn(buf, start, conv_model, bn_model, same_as_darknet=0):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
     bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
