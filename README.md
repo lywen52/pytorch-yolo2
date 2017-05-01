@@ -22,8 +22,30 @@ sheep: 0.247619
 #### Real-Time Detection on a Webcam
 
 #### Training YOLO on VOC
+##### Get The Pascal VOC Data
+```
+wget https://pjreddie.com/media/files/VOCtrainval_11-May-2012.tar
+wget https://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar
+wget https://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar
+tar xf VOCtrainval_11-May-2012.tar
+tar xf VOCtrainval_06-Nov-2007.tar
+tar xf VOCtest_06-Nov-2007.tar
+```
+##### Generate Labels for VOC
+```
+wget http://pjreddie.com/media/files/voc_label.py
+python voc_label.py
+cat 2007_train.txt 2007_val.txt 2012_*.txt > train.txt
+```
+##### Modify Cfg for Pascal Data
+Change the cfg/voc.data config file
+```
+train  = train.txt
+valid  = 2007_test.txt
+names = data/voc.names
+backup = backup
+```
 ##### Extract weights from pretrained model
 ```
-python partial.py cfg/tiny-yolo-voc.cfg tiny-yolo-voc.weights tiny-yolo-voc.conv.15 15
 python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv.23 23
 ```
