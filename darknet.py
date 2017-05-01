@@ -24,7 +24,7 @@ class Darknet(nn.Module):
         self.anchors = self.loss.anchors
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
-        self.header = torch.FloatTensor([0,0,0,0])
+        self.header = torch.IntTensor([0,0,0,0])
 
     def forward(self, x):
         x = self.model(x)

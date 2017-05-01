@@ -1,7 +1,8 @@
 from darknet import Darknet
+from darknet2 import Darknet2
 
 def partial(cfgfile, weightfile, outfile, cutoff):
-    m = Darknet(cfgfile)
+    m = Darknet2(cfgfile)
     m.float()
     m.load_weights(weightfile)
     m.save_weights(outfile, cutoff)
