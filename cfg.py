@@ -31,15 +31,13 @@ def parse_cfg(cfgfile):
 
 def print_cfg(blocks):
     print('layer     filters    size              input                output');
-
+    prev_width = 416
+    prev_height = 416
     prev_filters = 3
     out_filters =[]
     out_widths =[]
     out_heights =[]
-    conv_id = 0
     ind = -2
-    prev_width = 416
-    prev_height = 416
     for block in blocks:
         ind = ind + 1
         if block['type'] == 'net':
@@ -47,7 +45,6 @@ def print_cfg(blocks):
             prev_height = int(block['height'])
             continue
         elif block['type'] == 'convolutional':
-            conv_id = conv_id + 1
             filters = int(block['filters'])
             kernel_size = int(block['size'])
             stride = int(block['stride'])
@@ -137,5 +134,8 @@ def load_fc(buf, start, fc_model):
     return start
 
 if __name__ == '__main__':
+    import sys
     blocks = parse_cfg('cfg/yolo.cfg')
+    if len(sys.argv) == 2:
+        blocks = parse_cfg(sys.argv[1])
     print_cfg(blocks)
