@@ -1,4 +1,5 @@
 ### yolo2
+---
 #### Detection Using A Pre-Trained Model
 ```
 wget http://pjreddie.com/media/files/yolo.weights
@@ -19,7 +20,10 @@ boat: 0.095928
 sheep: 0.247619
 ```
 
+---
 #### Real-Time Detection on a Webcam
+
+---
 
 #### Training YOLO on VOC
 ##### Get The Pascal VOC Data
