@@ -17,7 +17,9 @@ def demo1(tiny_yolo_weight, img_path):
     img = Image.open(img_path).convert('RGB')
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
-    plot_boxes(img, boxes, 'predict1.jpg')    
+
+    class_names = load_class_names('data/voc.names')
+    plot_boxes(img, boxes, 'predict1.jpg', class_names)  
 
 def demo2(cfgfile, weightfile, img_path):
     m = Darknet(cfgfile) 
@@ -32,7 +34,9 @@ def demo2(cfgfile, weightfile, img_path):
     img = Image.open(img_path).convert('RGB')
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
-    plot_boxes(img, boxes, 'predict2.jpg')    
+
+    class_names = load_class_names('data/voc.names')
+    plot_boxes(img, boxes, 'predict2.jpg', class_names)
 
 def demo3(cfgfile, weightfile, img_path):
     m = Darknet2(cfgfile) 
@@ -47,7 +51,9 @@ def demo3(cfgfile, weightfile, img_path):
     img = Image.open(img_path).convert('RGB')
     sized = img.resize((416,416))
     boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
-    plot_boxes(img, boxes, 'predict3.jpg')    
+
+    class_names = load_class_names('data/voc.names')
+    plot_boxes(img, boxes, 'predict3.jpg', class_names)
 
 ############################################
 if __name__ == '__main__':

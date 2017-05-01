@@ -2,16 +2,15 @@ import os
 import math
 import torch
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 def sigmoid(x):
     return 1.0/(math.exp(-x)+1.)
 
 def softmax(x):
-    max_x = torch.max(x)
-    x = x - max_x
-    x = torch.exp(x)
-    return x/x.sum()
+    x = torch.exp(x - torch.max(x))
+    x = x/x.sum()
+    return x
 
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
@@ -102,7 +101,16 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                     boxes.append(box)
     return boxes
 
-def plot_boxes(img, boxes, savename, class_names = None):
+def plot_boxes(img, boxes, savename, class_names=None):
+    colors = torch.FloatTensor([[1,0,1],[0,0,1],[0,1,1],[0,1,0],[1,1,0],[1,0,0]]);
+    def get_color(c, x, max_val):
+        ratio = float(x)/max_val * 5
+        i = int(math.floor(ratio))
+        j = int(math.ceil(ratio))
+        ratio = ratio - i
+        r = (1-ratio) * colors[i][c] + ratio*colors[j][c]
+        return int(r*255)
+
     width = img.width
     height = img.height
     draw = ImageDraw.Draw(img)
@@ -112,36 +120,44 @@ def plot_boxes(img, boxes, savename, class_names = None):
         y1 = box[1] * height
         x2 = box[2] * width
         y2 = box[3] * height
-        draw.rectangle([x1, y1, x2, y2])
-        if len(box) >= 7:
+
+        rgb = (255, 0, 0)
+        if len(box) >= 7 and class_names:
             cls_conf = box[5]
             cls_id = box[6]
             print('%s: %f' % (class_names[cls_id], cls_conf))
+            classes = len(class_names)
+            offset = cls_id * 123457 % classes
+            red   = get_color(2, offset, classes)
+            green = get_color(1, offset, classes)
+            blue  = get_color(0, offset, classes)
+            rgb = (red, green, blue)
+            draw.text((x1, y1), class_names[cls_id], fill=rgb)
+        draw.rectangle([x1, y1, x2, y2], outline = rgb)
     img.save(savename)
 
 def load_conv(buf, start, conv_model):
     num_w = conv_model.weight.numel()
     num_b = conv_model.bias.numel()
-    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
     return start
 
 def load_conv_bn(buf, start, conv_model, bn_model):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
-    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-    running_var = torch.from_numpy(buf[start:start+num_b]); start = start + num_b
-    bn_model.running_var.copy_(running_var)
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b]));  start = start + num_b
+    bn_model.running_var.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
     return start
 
 def load_fc(buf, start, fc_model):
     num_w = fc_model.weight.numel()
     num_b = fc_model.bias.numel()
-    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b])); start = start + num_b
-    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]));   start = start + num_w 
     return start
 
 def read_truths(lab_path):

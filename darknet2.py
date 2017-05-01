@@ -24,7 +24,7 @@ class Darknet2(nn.Module):
 
     def forward(self, x):
         ind = -2
-        self.loss = 0
+        self.loss = None
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
@@ -46,12 +46,11 @@ class Darknet2(nn.Module):
                     outputs[ind] = x
             elif block['type'] == 'region':
                 continue
-                x = self.models[ind](x)
-                outputs[ind] = x
-                if self.loss != 0:
-                    self.loss = self.loss + x
+                if self.loss:
+                    self.loss = self.loss + self.models[ind](x)
                 else:
-                    self.loss = self.loss + x
+                    self.loss = self.models[ind](x)
+                outputs[ind] = None
             else:
                 print('' % (block['type']))
         return x
