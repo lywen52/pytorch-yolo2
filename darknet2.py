@@ -3,10 +3,29 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
-from darknet import Reorg, MaxPoolStride1
+from darknet import MaxPoolStride1
 from cfg import *
 
-# support route
+class Reorg(nn.Module):
+    def __init__(self, stride=2):
+        super(Reorg, self).__init__()
+        self.stride = stride
+
+    def forward(self, x):
+        stride = self.stride
+        assert(x.data.dim() == 4)
+        B = x.data.size(0)
+        C = x.data.size(1)
+        H = x.data.size(2)
+        W = x.data.size(3)
+        assert(H % stride == 0)
+        assert(W % stride == 0)
+        x = x.view(B, C, H/stride, stride, W/stride, stride).transpose(3, 4).contiguous()
+        x = x.view(B, C, H*W/(stride*stride), stride*stride).transpose(2,3).contiguous()
+        x = x.view(B, C*stride*stride, H/stride, W/stride)
+        return x
+
+# support route and reorg
 class Darknet2(nn.Module):
     def __init__(self, cfgfile):
         super(Darknet2,self).__init__()

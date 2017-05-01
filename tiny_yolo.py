@@ -2,7 +2,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from utils import *
+from cfg import *
 from darknet import MaxPoolStride1
 
 class TinyYoloNet(nn.Module):
