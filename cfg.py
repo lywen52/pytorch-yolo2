@@ -1,3 +1,4 @@
+import torch
 def parse_cfg(cfgfile):
     blocks = []
     fp = open(cfgfile, 'r')
@@ -110,6 +111,30 @@ def print_cfg(blocks):
             out_filters.append(prev_filters)
         else:
             print('unknown type %s' % (block['type']))
+
+def load_conv(buf, start, conv_model):
+    num_w = conv_model.weight.numel()
+    num_b = conv_model.bias.numel()
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
+    return start
+
+def load_conv_bn(buf, start, conv_model, bn_model):
+    num_w = conv_model.weight.numel()
+    num_b = bn_model.bias.numel()
+    bn_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    bn_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    bn_model.running_mean.copy_(torch.from_numpy(buf[start:start+num_b]));  start = start + num_b
+    bn_model.running_var.copy_(torch.from_numpy(buf[start:start+num_b]));   start = start + num_b
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
+    return start
+
+def load_fc(buf, start, fc_model):
+    num_w = fc_model.weight.numel()
+    num_b = fc_model.bias.numel()
+    fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
+    fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]));   start = start + num_w 
+    return start
 
 if __name__ == '__main__':
     blocks = parse_cfg('cfg/yolo.cfg')

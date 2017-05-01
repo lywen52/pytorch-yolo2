@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
-from utils import load_conv_bn, load_conv
 from darknet import Reorg, MaxPoolStride1
-from cfg import parse_cfg, print_cfg
+from cfg import parse_cfg, print_cfg, load_conv_bn, load_conv
 
 # support route
 class Darknet2(nn.Module):
