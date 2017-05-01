@@ -24,6 +24,7 @@ class Darknet(nn.Module):
         self.anchors = self.loss.anchors
         self.width = int(self.blocks[0]['width'])
         self.height = int(self.blocks[0]['height'])
+        self.header = torch.FloatTensor([0,0,0,0])
 
     def forward(self, x):
         x = self.model(x)
@@ -81,9 +82,14 @@ class Darknet(nn.Module):
         return model, loss
 
     def load_weights(self, weightfile):
+        fp = open(weightfile, 'rb')
+        header = np.fromfile(fp, count=4, dtype=np.int32)
+        self.header = torch.from_numpy(header)
+        buf = np.fromfile(fp, dtype = np.float32)
+        fp.close()
+
+        start = 0
         ind = 0
-        start = 4
-        buf = np.fromfile(weightfile, dtype = np.float32)
         for block in self.blocks:
             if block['type'] == 'net':
                 continue
@@ -105,15 +111,16 @@ class Darknet(nn.Module):
             else:
                 print('unknown type %s' % (block['type']))
 
-    def save_weights(self, outfile, max_layer=0):
-        if max_layer <= 0:
-            max_layer = len(self.blocks)-1
+    def save_weights(self, outfile, cutoff=0):
+        if cutoff <= 0:
+            cutoff = len(self.blocks)-1
 
         ind = 0
         fp = open(outfile, 'wb')
-        header = torch.FloatTensor([0,0,0,0])
+        header = self.header
+        header[3] = 0
         header.numpy().tofile(fp)
-        for blockId in range(1, max_layer+1):
+        for blockId in range(1, cutoff+1):
             block = self.blocks[blockId]
             if block['type'] == 'convolutional':
                 batch_normalize = int(block['batch_normalize'])

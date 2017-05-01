@@ -25,4 +25,5 @@ sheep: 0.247619
 ##### Extract weights from pretrained model
 ```
 python partial.py cfg/tiny-yolo-voc.cfg tiny-yolo-voc.weights tiny-yolo-voc.conv.15 15
+python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv.23 23
 ```

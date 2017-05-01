@@ -1,10 +1,10 @@
 from darknet import Darknet
 
-def partial(cfgfile, weightfile, outfile, max_layer):
+def partial(cfgfile, weightfile, outfile, cutoff):
     m = Darknet(cfgfile)
     m.float()
     m.load_weights(weightfile)
-    m.save_weights(outfile, max_layer)
+    m.save_weights(outfile, cutoff)
     print('save %s' % (outfile))
 
 if __name__ == '__main__':
@@ -13,7 +13,7 @@ if __name__ == '__main__':
         cfgfile = sys.argv[1]
         weightfile = sys.argv[2]
         outfile = sys.argv[3]
-        max_layer = int(sys.argv[4])
-        partial(cfgfile, weightfile, outfile, max_layer)
+        cutoff = int(sys.argv[4])
+        partial(cfgfile, weightfile, outfile, cutoff)
     else:
         partial('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'tiny-yolo-voc.conv.15', 15)
