@@ -117,6 +117,10 @@ def load_conv(buf, start, conv_model):
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w
     return start
 
+def save_conv(fp, conv_model):
+    conv_model.bias.data.numpy().tofile(fp)
+    conv_model.weight.data.numpy().tofile(fp)
+
 def load_conv_bn(buf, start, conv_model, bn_model):
     num_w = conv_model.weight.numel()
     num_b = bn_model.bias.numel()
@@ -127,12 +131,23 @@ def load_conv_bn(buf, start, conv_model, bn_model):
     conv_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w])); start = start + num_w 
     return start
 
+def save_conv_bn(fp, conv_model, bn_model):
+    bn_model.bias.data.numpy().tofile(fp)
+    bn_model.weight.data.numpy().tofile(fp)
+    bn_model.running_mean.numpy().tofile(fp)
+    bn_model.running_var.numpy().tofile(fp)
+    conv_model.weight.data.numpy().tofile(fp)
+
 def load_fc(buf, start, fc_model):
     num_w = fc_model.weight.numel()
     num_b = fc_model.bias.numel()
     fc_model.bias.data.copy_(torch.from_numpy(buf[start:start+num_b]));     start = start + num_b
     fc_model.weight.data.copy_(torch.from_numpy(buf[start:start+num_w]));   start = start + num_w 
     return start
+
+def save_fc(fp, fc_model):
+    fc_model.bias.data.numpy().tofile(fp)
+    fc_model.weight.data.numpy().tofile(fp)
 
 if __name__ == '__main__':
     import sys

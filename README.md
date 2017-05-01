@@ -20,3 +20,6 @@ sheep: 0.247619
 ```
 
 #### Real-Time Detection on a Webcam
+
+#### Training YOLO on VOC
+

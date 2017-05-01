@@ -104,3 +104,32 @@ class Darknet(nn.Module):
                 ind = ind+1
             else:
                 print('unknown type %s' % (block['type']))
+
+    def save_weights(self, outfile, max_layer=0):
+        if max_layer <= 0:
+            max_layer = len(self.blocks)-1
+
+        ind = 0
+        fp = open(outfile, 'wb')
+        header = torch.FloatTensor([0,0,0,0])
+        header.numpy().tofile(fp)
+        for blockId in range(1, max_layer+1):
+            block = self.blocks[blockId]
+            if block['type'] == 'convolutional':
+                batch_normalize = int(block['batch_normalize'])
+                activation = block['activation']
+                if batch_normalize:
+                    save_conv_bn(fp, self.model[ind], self.model[ind+1])
+                    ind = ind + 2
+                else:
+                    save_conv(fp, self.model[ind])
+                    ind = ind+1
+                if activation != 'linear':
+                    ind = ind+1
+            elif block['type'] == 'maxpool':
+                ind = ind+1
+            elif block['type'] == 'region':
+                ind = ind+1
+            else:
+                print('unknown type %s' % (block['type']))
+        fp.close()
