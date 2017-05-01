@@ -62,3 +62,8 @@ python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv
 ```
 python train.py cfg/voc.data cfg/yolo-voc.cfg darknet19_448.conv.23
 ```
+---
+#### Todo
+- [ ] support avgpool softmax sse layer
+- [ ] verify python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv.23 23
+- [ ] 
