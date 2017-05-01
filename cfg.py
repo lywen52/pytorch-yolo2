@@ -1,4 +1,5 @@
 import torch
+
 def parse_cfg(cfgfile):
     blocks = []
     fp = open(cfgfile, 'r')
