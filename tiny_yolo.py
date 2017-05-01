@@ -84,3 +84,23 @@ class TinyYoloNet(nn.Module):
         start = load_conv_bn(buf, start, self.cnn[27], self.cnn[28])
         start = load_conv(buf, start, self.cnn[30])
 
+if __name__ == '__main__':
+    from PIL import Image
+    from utils import *
+    m = TinyYoloNet() 
+    m.float()
+    m.eval()
+    m.load_darknet_weights('tiny-yolo-voc.weights')
+    print(m)
+    
+    use_cuda = 1
+    if use_cuda:
+        m.cuda()
+
+    img = Image.open('data/person.jpg').convert('RGB')
+    sized = img.resize((416,416))
+    boxes = do_detect(m, sized, 0.5, 0.4, use_cuda)
+
+    class_names = load_class_names('data/voc.names')
+    plot_boxes(img, boxes, 'predict1.jpg', class_names)  
+
