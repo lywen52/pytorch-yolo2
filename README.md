@@ -49,7 +49,16 @@ valid  = 2007_test.txt
 names = data/voc.names
 backup = backup
 ```
-##### Extract weights from pretrained model
+##### Download Pretrained Convolutional Weights
+Download weights from the convolutional layers
+```
+wget http://pjreddie.com/media/files/darknet19_448.conv.23
+```
+or run the following command:
 ```
 python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv.23 23
+```
+##### Train The Model
+```
+python train.py cfg/voc.data cfg/yolo-voc.cfg darknet19_448.conv.23
 ```
