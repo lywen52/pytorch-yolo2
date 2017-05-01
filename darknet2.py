@@ -25,6 +25,19 @@ class Reorg(nn.Module):
         x = x.view(B, C*stride*stride, H/stride, W/stride)
         return x
 
+class GlobalAvgPool2d(nn.Module):
+    def __init__(self):
+        super(GlobalAvgPool2d, self).__init__()
+
+    def forward(self, x):
+        N = x.data.size(0)
+        C = x.data.size(1)
+        H = x.data.size(2)
+        W = x.data.size(3)
+        x = F.avg_pool2d(x, (H, W))
+        x = x.view(N, C)
+        return x
+
 # support route and reorg
 class Darknet2(nn.Module):
     def __init__(self, cfgfile):
@@ -50,7 +63,7 @@ class Darknet2(nn.Module):
             ind = ind + 1
             if block['type'] == 'net':
                 continue
-            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg':
+            elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block['type'] == 'avgpool' or block['type'] == 'softmax':
                 x = self.models[ind](x)
                 outputs[ind] = x
             elif block['type'] == 'route':
@@ -71,8 +84,10 @@ class Darknet2(nn.Module):
                 else:
                     self.loss = self.models[ind](x)
                 outputs[ind] = None
+            elif block['type'] == 'cost':
+                continue
             else:
-                print('' % (block['type']))
+                print('unknown type %s' % (block['type']))
         return x
 
     def print_network(self):
@@ -115,6 +130,23 @@ class Darknet2(nn.Module):
                 else:
                     model = MaxPoolStride1()
                 out_filters.append(prev_filters)
+                models.append(model)
+            elif block['type'] == 'avgpool':
+                model = GlobalAvgPool2d()
+                out_filters.append(prev_filters)
+                models.append(model)
+            elif block['type'] == 'softmax':
+                model = nn.Softmax()
+                out_filters.append(prev_filters)
+                models.append(model)
+            elif block['type'] == 'cost':
+                if block['_type'] == 'sse':
+                    model = nn.MSELoss(size_average=True)
+                elif block['_type'] == 'L1':
+                    model = nn.L1Loss(size_average=True)
+                elif block['_type'] == 'smooth':
+                    model = nn.SmoothL1Loss(size_average=True)
+                out_filters.append(1)
                 models.append(model)
             elif block['type'] == 'reorg':
                 stride = int(block['stride'])
@@ -178,6 +210,12 @@ class Darknet2(nn.Module):
                 pass
             elif block['type'] == 'region':
                 pass
+            elif block['type'] == 'avgpool':
+                pass
+            elif block['type'] == 'softmax':
+                pass
+            elif block['type'] == 'cost':
+                pass
             else:
                 print('unknown type %s' % (block['type']))
 
@@ -208,6 +246,12 @@ class Darknet2(nn.Module):
             elif block['type'] == 'route':
                 pass
             elif block['type'] == 'region':
+                pass
+            elif block['type'] == 'avgpool':
+                pass
+            elif block['type'] == 'softmax':
+                pass
+            elif block['type'] == 'cost':
                 pass
             else:
                 print('unknown type %s' % (block['type']))

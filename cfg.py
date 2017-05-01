@@ -21,6 +21,8 @@ def parse_cfg(cfgfile):
         else:
             key,value = line.split('=')
             key = key.strip()
+            if key == 'type':
+                key = '_type'
             value = value.strip()
             block[key] = value
         line = fp.readline()
@@ -69,6 +71,26 @@ def print_cfg(blocks):
             prev_width = width
             prev_height = height
             prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'avgpool':
+            width = 1
+            height = 1
+            print('%5d %-6s                   %3d x %3d x%4d   ->  %3d' % (ind, 'avg', prev_width, prev_height, prev_filters,  prev_filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'softmax':
+            print('%5d %-6s                                    ->  %3d' % (ind, 'softmax', prev_filters))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'cost':
+            print('%5d %-6s                                     ->  %3d' % (ind, 'cost', prev_filters))
             out_widths.append(prev_width)
             out_heights.append(prev_height)
             out_filters.append(prev_filters)
