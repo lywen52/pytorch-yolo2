@@ -1,0 +1,116 @@
+def parse_cfg(cfgfile):
+    blocks = []
+    fp = open(cfgfile, 'r')
+    block =  None
+    line = fp.readline()
+    while line != '':
+        line = line.rstrip()
+        if line == '' or line[0] == '#':
+            line = fp.readline()
+            continue        
+        elif line[0] == '[':
+            if block:
+                blocks.append(block)
+            block = dict()
+            block['type'] = line.lstrip('[').rstrip(']')
+            # set default value
+            if block['type'] == 'convolutional':
+                block['batch_normalize'] = 0
+        else:
+            key,value = line.split('=')
+            key = key.strip()
+            value = value.strip()
+            block[key] = value
+        line = fp.readline()
+
+    if block:
+        blocks.append(block)
+    fp.close()
+    return blocks
+
+def print_cfg(blocks):
+    print('layer     filters    size              input                output');
+
+    prev_filters = 3
+    out_filters =[]
+    out_widths =[]
+    out_heights =[]
+    conv_id = 0
+    ind = -2
+    prev_width = 416
+    prev_height = 416
+    for block in blocks:
+        ind = ind + 1
+        if block['type'] == 'net':
+            prev_width = int(block['width'])
+            prev_height = int(block['height'])
+            continue
+        elif block['type'] == 'convolutional':
+            conv_id = conv_id + 1
+            filters = int(block['filters'])
+            kernel_size = int(block['size'])
+            stride = int(block['stride'])
+            is_pad = int(block['pad'])
+            pad = (kernel_size-1)/2 if is_pad else 0
+            width = (prev_width + 2*pad - kernel_size)/stride + 1
+            height = (prev_height + 2*pad - kernel_size)/stride + 1
+            print('%5d %-6s %4d  %d x %d / %d   %3d x %3d x%4d   ->   %3d x %3d x%4d' % (ind, 'conv', filters, kernel_size, kernel_size, stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'maxpool':
+            pool_size = int(block['size'])
+            stride = int(block['stride'])
+            width = prev_width/stride
+            height = prev_height/stride
+            print('%5d %-6s       %d x %d / %d   %3d x %3d x%4d   ->   %3d x %3d x%4d' % (ind, 'max', pool_size, pool_size, stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'reorg':
+            stride = int(block['stride'])
+            filters = stride * stride * prev_filters
+            width = prev_width/stride
+            height = prev_height/stride
+            print('%5d %-6s             / %d   %3d x %3d x%4d   ->   %3d x %3d x%4d' % (ind, 'reorg', stride, prev_width, prev_height, prev_filters, width, height, filters))
+            prev_width = width
+            prev_height = height
+            prev_filters = filters
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'route':
+            layers = block['layers'].split(',')
+            layers = [int(i) if int(i) > 0 else int(i)+ind for i in layers]
+            if len(layers) == 1:
+                print('%5d %-6s %d' % (ind, 'route', layers[0]))
+                prev_width = out_widths[layers[0]]
+                prev_height = out_heights[layers[0]]
+                prev_filters = out_filters[layers[0]]
+            elif len(layers) == 2:
+                print('%5d %-6s %d %d' % (ind, 'route', layers[0], layers[1]))
+                prev_width = out_widths[layers[0]]
+                prev_height = out_heights[layers[0]]
+                assert(prev_width == out_widths[layers[1]])
+                assert(prev_height == out_heights[layers[1]])
+                prev_filters = out_filters[layers[0]] + out_filters[layers[1]]
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        elif block['type'] == 'region':
+            print('%5d %-6s' % (ind, 'detection'))
+            out_widths.append(prev_width)
+            out_heights.append(prev_height)
+            out_filters.append(prev_filters)
+        else:
+            print('unknown type %s' % (block['type']))
+
+if __name__ == '__main__':
+    blocks = parse_cfg('cfg/yolo.cfg')
+    print_cfg(blocks)

@@ -4,36 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
 from utils import load_conv_bn, load_conv
-
-def parse_cfg(cfgfile):
-    blocks = []
-    fp = open(cfgfile, 'r')
-    block =  None
-    line = fp.readline()
-    while line != '':
-        line = line.rstrip()
-        if line == '' or line[0] == '#':
-            line = fp.readline()
-            continue        
-        elif line[0] == '[':
-            if block:
-                blocks.append(block)
-            block = dict()
-            block['type'] = line.lstrip('[').rstrip(']')
-            # set default value
-            if block['type'] == 'convolutional':
-                block['batch_normalize'] = 0
-        else:
-            key,value = line.split('=')
-            key = key.strip()
-            value = value.strip()
-            block[key] = value
-        line = fp.readline()
-
-    if block:
-        blocks.append(block)
-    fp.close()
-    return blocks
+from cfg import parse_cfg, print_cfg
 
 class Reorg(nn.Module):
     def __init__(self, stride=2):
@@ -77,6 +48,9 @@ class Darknet(nn.Module):
     def forward(self, x):
         x = self.model(x)
         return x
+
+    def print_network(self):
+        print_cfg(self.blocks)
 
     def create_network(self, blocks):
         model = nn.Sequential()

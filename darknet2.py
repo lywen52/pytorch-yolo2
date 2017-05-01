@@ -4,7 +4,8 @@ import torch.nn.functional as F
 import numpy as np
 from region_loss import RegionLoss
 from utils import load_conv_bn, load_conv
-from darknet import parse_cfg, Reorg, MaxPoolStride1
+from darknet import Reorg, MaxPoolStride1
+from cfg import parse_cfg, print_cfg
 
 # support route
 class Darknet2(nn.Module):
@@ -54,6 +55,9 @@ class Darknet2(nn.Module):
             else:
                 print('' % (block['type']))
         return x
+
+    def print_network(self):
+        print_cfg(self.blocks)
 
     def create_network(self, blocks):
         models = nn.ModuleList()
