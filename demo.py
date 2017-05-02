@@ -6,7 +6,6 @@ from darknet2 import Darknet2
 
 def demo1(tiny_yolo_weight, img_path):
     m = TinyYoloNet() 
-    m.float()
     m.eval()
     m.load_darknet_weights(tiny_yolo_weight)
     
@@ -23,7 +22,6 @@ def demo1(tiny_yolo_weight, img_path):
 
 def demo2(cfgfile, weightfile, img_path):
     m = Darknet(cfgfile) 
-    m.float()
     m.load_weights(weightfile)
     m.eval()
     
@@ -40,7 +38,6 @@ def demo2(cfgfile, weightfile, img_path):
 
 def demo3(cfgfile, weightfile, img_path):
     m = Darknet2(cfgfile) 
-    m.float()
     m.load_weights(weightfile)
     m.eval()
     
@@ -57,7 +54,6 @@ def demo3(cfgfile, weightfile, img_path):
 
 def demo4(cfgfile, weightfile, videofile):
     m = Darknet2(cfgfile) 
-    m.float()
     m.load_weights(weightfile)
     m.eval()
     

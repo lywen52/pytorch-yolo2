@@ -5,12 +5,10 @@ from darknet import Darknet
 
 def eval_list(cfgfile, weightfile, img_list, eval_wid, eval_hei):
     #m = TinyYoloFace14Net()
-    #m.float()
     #m.eval()
     #m.load_darknet_weights(tiny_yolo_weight)
 
     m = Darknet(cfgfile)
-    m.float()
     m.eval()
     m.load_weights(weightfile)
 

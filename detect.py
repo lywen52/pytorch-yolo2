@@ -13,7 +13,6 @@ def detect(cfgfile, weightfile, imgfile, version=2):
         m = Darknet2(cfgfile) 
 
     m.print_network()
-    m.float()
     m.load_weights(weightfile)
     print('Loading weights from %s... Done!' % (weightfile))
 

@@ -14,16 +14,17 @@ from utils import *
 from region_loss import RegionLoss
 from darknet import Darknet
 from darknet2 import Darknet2
+from tiny_yolo_face14 import TinyYoloFace14Net
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 10)')
-parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.0001, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
@@ -56,13 +57,12 @@ test_loader = torch.utils.data.DataLoader(
                        transforms.Scale(416),
                        transforms.ToTensor(),
                    ])),
-    batch_size=args.batch_size, shuffle=False, **kwargs)
+    batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
-#model = TinyYoloFace14Net()
-#region_loss = RegionLoss(model.num_classes, model.anchors)
-model = Darknet2('cfg/face4.1nb_inc2_96.16.cfg')
-model.float()
-region_loss = model.loss
+model = TinyYoloFace14Net()
+region_loss = RegionLoss(model.num_classes, model.anchors)
+#model = Darknet('cfg/face4.1nb_inc2_96.16.cfg')
+#region_loss = model.loss
 
 model.load_weights('face4.1nb_inc2_96.16.weights')
 
@@ -86,7 +86,7 @@ def train(epoch):
             sys.stdout.write(".")
         if (batch_idx+1) % 100 == 0:
             print('')
-        if (batch_idx+1) % 1000 == 0:
+        if (batch_idx+1) % 100 == 0:
             test(epoch)
             model.train()
 
@@ -109,17 +109,13 @@ def test(epoch):
     model.eval()
     num_classes = model.module.num_classes
     anchors = model.module.anchors
-
     conf_thresh = 0.25
     nms_thresh = 0.4
     iou_thresh = 0.5
-
     total = 0.0
     proposals = 0.0
     correct = 0.0
-
-    lineId = 0
-    for data, target in test_loader:
+    for batch_idx, (data, target) in enumerate(test_loader):
         t0 = time.time()
 
         if args.cuda:
@@ -134,7 +130,6 @@ def test(epoch):
         t3 = time.time()
         for i in range(output.size(0)):
             l0 = time.time()
-            lineId = lineId + 1
 
             boxes = all_boxes[i]
             l1 = time.time()
@@ -166,22 +161,15 @@ def test(epoch):
                     correct = correct+1
             l4 = time.time()
     
-            #precision = 1.0*correct/(proposals+0.000001)
-            #recall = 1.0*correct/(total+0.000001)
-            #fscore = 2.0*precision*recall/(precision+recall+0.000001)
-            #print("%d precision: %f, recal: %f, fscore: %f" % (lineId, precision, recall, fscore))
-            l5 = time.time()
-           
             if False:
                 print('------------------------------')
                 print(' get_region_boxes : %f' % (l1 - l0))
                 print('              nms : %f' % (l2 - l1))
                 print('       get truths : %f' % (l3 - l2))
                 print('      get correct : %f' % (l4 - l3))
-                print('           fscore : %f' % (l5 - l4))
                 print('------------------------------')
         t4 = time.time()
-        if True:
+        if False:
             print('------------------------------')
             print('    data to cuda : %f' % (t1 - t0))
             print('   batch predict : %f' % (t2 - t1))
@@ -192,7 +180,7 @@ def test(epoch):
         precision = 1.0*correct/(proposals+0.000001)
         recall = 1.0*correct/(total+0.000001)
         fscore = 2.0*precision*recall/(precision+recall+0.000001)
-        print("%d : precision: %f, recal: %f, fscore: %f" % (epoch, precision, recall, fscore))
+        print("%d : precision: %f, recal: %f, fscore: %f" % (batch_idx, precision, recall, fscore))
 
 test(0)
 for epoch in range(1, args.epochs + 1):
