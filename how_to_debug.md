@@ -51,3 +51,4 @@ train.py
 - slow: 380ms
 - fast: 114ms
 - faster: 22ms (batch=64 1.5s)
+- fasterer: gpu to cpu  (batch=64 0.15s)
