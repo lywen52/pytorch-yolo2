@@ -3,7 +3,7 @@
 #### Detection Using A Pre-Trained Model
 ```
 wget http://pjreddie.com/media/files/yolo.weights
-python detect.py cfg/yolo.cfg data/coco.names yolo.weights data/dog.jpg
+python detect.py cfg/yolo.cfg yolo.weights data/dog.jpg
 ```
 You will see some output like this:
 ```

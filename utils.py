@@ -1,4 +1,5 @@
 import os
+import time
 import math
 import torch
 import numpy as np
@@ -158,6 +159,8 @@ def load_class_names(namesfile):
 
 def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
     model.eval()
+    t0 = time.time()
+
     if isinstance(img, Image.Image):
         width = img.width
         height = img.height
@@ -165,13 +168,31 @@ def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
         img = img.view(height, width, 3).transpose(0,1).transpose(0,2).contiguous()
         img = img.view(1, 3, height, width)
         img = img.float().div(255.0)
+    t1 = time.time()
+
     if use_cuda:
         img = img.cuda()
     img = torch.autograd.Variable(img)
+    t2 = time.time()
 
     output = model(img)
     output = output.data
+    t3 = time.time()
+
     boxes = get_region_boxes(output, conf_thresh, model.num_classes, model.anchors)
+    t4 = time.time()
+
     boxes = nms(boxes, nms_thresh)
+    t5 = time.time()
+
+    if False:
+        print('-----------------------------------')
+        print(' image to tensor : %f' % (t1 - t0))
+        print('  tensor to cuda : %f' % (t2 - t1))
+        print('         predict : %f' % (t3 - t2))
+        print('get_region_boxes : %f' % (t4 - t3))
+        print('             nms : %f' % (t5 - t4))
+        print('           total : %f' % (t5 - t0))
+        print('-----------------------------------')
     return boxes
 

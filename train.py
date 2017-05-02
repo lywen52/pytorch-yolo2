@@ -8,7 +8,6 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-from tiny_yolo_face14 import TinyYoloFace14Net
 
 import dataset
 from utils import *
@@ -60,7 +59,7 @@ test_loader = torch.utils.data.DataLoader(
 
 #model = TinyYoloFace14Net()
 #region_loss = RegionLoss(model.num_classes, model.anchors)
-model = Darknet('face4.1nb_inc2_96.16.cfg')
+model = Darknet('cfg/face4.1nb_inc2_96.16.cfg')
 model.float()
 region_loss = model.loss
 
