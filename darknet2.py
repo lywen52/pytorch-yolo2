@@ -10,7 +10,6 @@ class Reorg(nn.Module):
     def __init__(self, stride=2):
         super(Reorg, self).__init__()
         self.stride = stride
-
     def forward(self, x):
         stride = self.stride
         assert(x.data.dim() == 4)
@@ -20,9 +19,12 @@ class Reorg(nn.Module):
         W = x.data.size(3)
         assert(H % stride == 0)
         assert(W % stride == 0)
-        x = x.view(B, C, H/stride, stride, W/stride, stride).transpose(3, 4).contiguous()
-        x = x.view(B, C, H*W/(stride*stride), stride*stride).transpose(2,3).contiguous()
-        x = x.view(B, C*stride*stride, H/stride, W/stride)
+        ws = stride
+        hs = stride
+        x = x.view(B, C, H/hs, hs, W/ws, ws).transpose(3,4).contiguous()
+        x = x.view(B, C, H/hs*W/ws, hs*ws).transpose(2,3).contiguous()
+        x = x.view(B, C, hs*ws, H/hs, W/ws).transpose(1,2).contiguous()
+        x = x.view(B, hs*ws*C, H/hs, W/ws)
         return x
 
 class GlobalAvgPool2d(nn.Module):
@@ -61,6 +63,7 @@ class Darknet2(nn.Module):
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
+
             if block['type'] == 'net':
                 continue
             elif block['type'] == 'convolutional' or block['type'] == 'maxpool' or block['type'] == 'reorg' or block['type'] == 'avgpool' or block['type'] == 'softmax':

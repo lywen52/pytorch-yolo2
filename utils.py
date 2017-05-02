@@ -75,16 +75,19 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
     h = output.size(2)
     w = output.size(3)
     boxes = []
+
+    output = output.view(num_anchors, 5+num_classes, h*w).transpose(1,2).contiguous()
+    output = output.view(num_anchors, h, w, 5+num_classes)
     for cy in range(h):
         for cx in range(w):
             for i in range(num_anchors):
-                start = (5+num_classes)*i
-                bcx = sigmoid(output[0][start][cy][cx]) + cx
-                bcy = sigmoid(output[0][start+1][cy][cx]) + cy
-                bw = anchors[2*i] * math.exp(output[0][start+2][cy][cx])
-                bh = anchors[2*i+1] * math.exp(output[0][start+3][cy][cx])
-                det_conf = sigmoid(output[0][start+4][cy][cx]) 
-                cls_confs = softmax(output[0][start+5:start+5+num_classes][cy][cx])
+                predict = output[i][cy][cx]
+                bcx = sigmoid(predict[0]) + cx
+                bcy = sigmoid(predict[1]) + cy
+                bw = anchors[2*i] * math.exp(predict[2])
+                bh = anchors[2*i+1] * math.exp(predict[3])
+                det_conf = sigmoid(predict[4]) 
+                cls_confs = softmax(predict[5:5+num_classes])
                 cls_conf, cls_id = torch.max(cls_confs, 0)
                 cls_conf = cls_conf[0]
                 cls_id = cls_id[0]
