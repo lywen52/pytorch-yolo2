@@ -51,7 +51,7 @@ train_loader = torch.utils.data.DataLoader(
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
-    dataset.listDataset('test_small.txt', shuffle=False,
+    dataset.listDataset('test.txt', shuffle=False,
                    transform=transforms.Compose([
                        transforms.Scale(416),
                        transforms.ToTensor(),
@@ -169,7 +169,7 @@ def test(epoch):
             #print("%d precision: %f, recal: %f, fscore: %f" % (lineId, precision, recall, fscore))
             l5 = time.time()
            
-            if True:
+            if False:
                 print('------------------------------')
                 print(' get_region_boxes : %f' % (l1 - l0))
                 print('              nms : %f' % (l2 - l1))
@@ -185,14 +185,11 @@ def test(epoch):
             print('       fscore : %f' % (t3 - t2))
             print('------------------------------')
 
-        precision = 1.0*correct/(proposals+0.000001)
-        recall = 1.0*correct/(total+0.000001)
-        fscore = 2.0*precision*recall/(precision+recall+0.000001)
-        print("precision: %f, recal: %f, fscore: %f" % (precision, recall, fscore))
+    precision = 1.0*correct/(proposals+0.000001)
+    recall = 1.0*correct/(total+0.000001)
+    fscore = 2.0*precision*recall/(precision+recall+0.000001)
+    print("%d : precision: %f, recal: %f, fscore: %f" % (epoch, precision, recall, fscore))
 
-test(0)
-test(0)
-test(0)
 test(0)
 for epoch in range(1, args.epochs + 1):
     train(epoch)

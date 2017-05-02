@@ -68,45 +68,6 @@ def nms(boxes, nms_thresh):
                     box_j[4] = 0
     return out_boxes
 
-def get_region_boxes_fast1(output, conf_thresh, num_classes, anchors):
-    num_anchors = len(anchors)/2
-    if output.dim() == 3:
-        output = output.unsqueeze(0)
-    assert(output.size(0) == 1)
-    assert(output.size(1) == (5+num_classes)*num_anchors)
-    h = output.size(2)
-    w = output.size(3)
-    boxes = []
-
-    output = output.view(num_anchors, 5+num_classes, h*w)
-    for cy in range(h):
-        for cx in range(w):
-            for i in range(num_anchors):
-                loc = cy * w + cx
-                predict = torch.index_select(output[i], 1, torch.LongTensor([loc]).cuda()).view(-1)
-                det_conf = sigmoid(predict[4])
-
-                if det_conf > conf_thresh:
-                    bcx = sigmoid(predict[0]) + cx
-                    bcy = sigmoid(predict[1]) + cy
-                    bw = anchors[2*i] * math.exp(predict[2])
-                    bh = anchors[2*i+1] * math.exp(predict[3])
-                    cls_confs = softmax(predict[5:5+num_classes])
-                    cls_conf, cls_id = torch.max(cls_confs, 0)
-                    cls_conf = cls_conf[0]
-                    cls_id = cls_id[0]
-                    x1 = bcx - bw/2
-                    y1 = bcy - bh/2
-                    x2 = bcx + bw/2
-                    y2 = bcy + bh/2
-                    x1 = max(x1, 0.0)
-                    y1 = max(y1, 0.0)
-                    x2 = min(x2, w)
-                    y2 = min(y2, h)
-                    box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
-                    boxes.append(box)
-    return boxes
-
 def get_region_boxes(output, conf_thresh, num_classes, anchors):
     num_anchors = len(anchors)/2
     if output.dim() == 3:

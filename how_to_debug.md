@@ -9,8 +9,6 @@
             ind = ind + 1
             #if ind > 27:
             #    break
-
-
 ```
 2. In utils.py:do_detect, add
 ```
@@ -48,7 +46,8 @@ detect.py cfg/yolo.cfg yolo.weight data/dog.jpg
 - slow : 0.145544 
 - fast : 0.050640
 - faster: 0.009280
+
 train.py
 - slow: 380ms
 - fast: 114ms
-- faster: 22ms
+- faster: 22ms (batch=64 1.5s)

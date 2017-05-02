@@ -46,7 +46,7 @@ class Darknet2(nn.Module):
         super(Darknet2,self).__init__()
         self.blocks = parse_cfg(cfgfile)
         self.models = self.create_network(self.blocks) # merge conv, bn,leaky
-        self.loss = 0
+        self.loss = self.models[len(self.models)-1]
         for block in self.blocks:
             if block['type'] == 'net':
                 self.width = int(block['width'])
