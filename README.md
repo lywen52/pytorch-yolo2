@@ -67,12 +67,12 @@ python train.py cfg/voc.data cfg/yolo-voc.cfg darknet19_448.conv.23
 - [x] verify python partial.py cfg/darknet19_448.cfg darknet19_448.weights darknet19_448.conv.23 23
 - [ ] compare with darknet to make same forward softmax results by modeify batch_norm layer
 ---
-#### Notice
-##### Running variance difference between darknet and pytorch
+#### Problems
+##### 1. Running variance difference between darknet and pytorch
 Change the code in normalize_cpu to make the same result
 ```
 normalize_cpu:
 x[index] = (x[index] - mean[f])/(sqrt(variance[f] + .00001f));
 ``` 
-##### Predition is very time consuming
-The first forward is usually slow, you can try multiple forward.
+##### 2. Predition is very time consuming
+The first forward is usually slow, you can forward many times to test the speed.

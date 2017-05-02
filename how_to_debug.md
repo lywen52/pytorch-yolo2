@@ -42,3 +42,11 @@ printf("\n");
 
 #### Reorg Problem
 There seems the problem in darknet
+
+#### get_region_boxes speed up
+detect.py cfg/yolo.cfg yolo.weight data/dog.jpg
+- slow : 0.145544 
+- fast : 0.050640
+train.py
+- slow: 380ms
+- fast: 114ms

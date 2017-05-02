@@ -13,6 +13,7 @@ import dataset
 from utils import *
 from region_loss import RegionLoss
 from darknet import Darknet
+from darknet2 import Darknet2
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -59,11 +60,11 @@ test_loader = torch.utils.data.DataLoader(
 
 #model = TinyYoloFace14Net()
 #region_loss = RegionLoss(model.num_classes, model.anchors)
-model = Darknet('cfg/face4.1nb_inc2_96.16.cfg')
+model = Darknet2('cfg/face4.1nb_inc2_96.16.cfg')
 model.float()
 region_loss = model.loss
 
-#model.load_darknet_weights('face4.1nb_inc2_96.16.weights')
+model.load_weights('face4.1nb_inc2_96.16.weights')
 
 if args.cuda:
     model = torch.nn.DataParallel(model).cuda()
@@ -119,16 +120,25 @@ def test(epoch):
 
     lineId = 0
     for data, target in test_loader:
+        t0 = time.time()
+
         if args.cuda:
             data = data.cuda()
         data = Variable(data, volatile=True)
+        t1 = time.time()
+
         output = model(data).data
-        print('batch = %d' % (data.size(0)))
+        t2 = time.time()
         for i in range(output.size(0)):
+            l0 = time.time()
             lineId = lineId + 1
 
             boxes = get_region_boxes(output[i], conf_thresh, num_classes, anchors)
+            l1 = time.time()
+
             boxes = nms(boxes, nms_thresh)
+            l2 = time.time()
+
             truths = target[i].view(-1, 5)
             num_gts = truths_length(truths)
      
@@ -137,7 +147,8 @@ def test(epoch):
             for i in range(len(boxes)):
                 if boxes[i][4] > conf_thresh:
                     proposals = proposals+1
-    
+            l3 = time.time()
+
             for i in range(num_gts):
                 x1 = truths[i][1] - truths[i][3]/2.0
                 y1 = truths[i][2] - truths[i][4]/2.0
@@ -150,11 +161,27 @@ def test(epoch):
                     best_iou = max(iou, best_iou)
                 if best_iou > iou_thresh:
                     correct = correct+1
+            l4 = time.time()
     
             precision = 1.0*correct/(proposals+0.000001)
             recall = 1.0*correct/(total+0.000001)
             fscore = 2.0*precision*recall/(precision+recall+0.000001)
             print("%d precision: %f, recal: %f, fscore: %f\n" % (lineId, precision, recall, fscore))
+            l5 = time.time()
+           
+            print('------------------------------')
+            print(' get_region_boxes : %f' % (l1 - l0))
+            print('              nms : %f' % (l2 - l1))
+            print('       get truths : %f' % (l3 - l2))
+            print('      get correct : %f' % (l4 - l3))
+            print('           fscore : %f' % (l5 - l4))
+            print('------------------------------')
+        t3 = time.time()
+        print('------------------------------')
+        print(' data to cuda : %f' % (t1 - t0))
+        print('batch predict : %f' % (t2 - t1))
+        print('       fscore : %f' % (t3 - t2))
+        print('------------------------------')
 
 test(0)
 for epoch in range(1, args.epochs + 1):
