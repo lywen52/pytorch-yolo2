@@ -10,7 +10,6 @@ def detect(cfgfile, weightfile, imgfile, version=2):
     if version == 1:
         m = Darknet(cfgfile) 
     elif version == 2:
-        # support reorg, route
         m = Darknet2(cfgfile) 
 
     m.print_network()
@@ -45,9 +44,6 @@ if __name__ == '__main__':
         cfgfile = sys.argv[1]
         weightfile = sys.argv[2]
         imgfile = sys.argv[3]
-        #print('cfgfile    = %s' % (cfgfile))
-        #print('weightfile = %s' % (weightfile))
-        #print('imgfile    = %s' % (imgfile))
         detect(cfgfile, weightfile, imgfile, version=2)
     else:
         detect('cfg/tiny-yolo-voc.cfg', 'tiny-yolo-voc.weights', 'data/person.jpg', version=1)
