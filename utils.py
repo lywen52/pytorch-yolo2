@@ -72,45 +72,86 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
     num_anchors = len(anchors)/2
     if output.dim() == 3:
         output = output.unsqueeze(0)
-    assert(output.size(0) == 1)
+    batch = output.size(0)
     assert(output.size(1) == (5+num_classes)*num_anchors)
     h = output.size(2)
     w = output.size(3)
-    boxes = []
 
-    output = output.view(num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, num_anchors*h*w)
-    xy = torch.sigmoid(output[0:2])
-    wh = torch.exp(output[2:4])
-    det_confs = output[4]
-    cls_confs = torch.nn.Softmax()(Variable(output[5:5+num_classes].transpose(0,1))).data
-    cls_confs, cls_ids = torch.max(cls_confs, 1)
-    cls_confs = cls_confs.view(-1)
-    cls_ids = cls_ids.view(-1)
+    if batch == 1:
+        boxes = []
+        output = output.view(num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, num_anchors*h*w)
+        xy = torch.sigmoid(output[0:2])
+        wh = torch.exp(output[2:4])
+        det_confs = output[4]
+        cls_confs = torch.nn.Softmax()(Variable(output[5:5+num_classes].transpose(0,1))).data
+        cls_confs, cls_ids = torch.max(cls_confs, 1)
+        cls_confs = cls_confs.view(-1)
+        cls_ids = cls_ids.view(-1)
+        
+        for cy in range(h):
+            for cx in range(w):
+                for i in range(num_anchors):
+                    ind = i*h*w + cy * w + cx
+                    det_conf =  det_confs[ind]
     
-    for cy in range(h):
-        for cx in range(w):
-            for i in range(num_anchors):
-                ind = i*h*w + cy * w + cx
-                det_conf =  det_confs[ind]
-
-                if det_conf > conf_thresh:
-                    bcx = xy[0][ind] + cx
-                    bcy = xy[1][ind] + cy
-                    bw = anchors[2*i] * wh[0][ind]
-                    bh = anchors[2*i+1] * wh[1][ind]
-                    cls_conf = cls_confs[ind]
-                    cls_id = cls_ids[ind]
-                    x1 = bcx - bw/2
-                    y1 = bcy - bh/2
-                    x2 = bcx + bw/2
-                    y2 = bcy + bh/2
-                    x1 = max(x1, 0.0)
-                    y1 = max(y1, 0.0)
-                    x2 = min(x2, w)
-                    y2 = min(y2, h)
-                    box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
-                    boxes.append(box)
-    return boxes
+                    if det_conf > conf_thresh:
+                        bcx = xy[0][ind] + cx
+                        bcy = xy[1][ind] + cy
+                        bw = anchors[2*i] * wh[0][ind]
+                        bh = anchors[2*i+1] * wh[1][ind]
+                        cls_conf = cls_confs[ind]
+                        cls_id = cls_ids[ind]
+                        x1 = bcx - bw/2
+                        y1 = bcy - bh/2
+                        x2 = bcx + bw/2
+                        y2 = bcy + bh/2
+                        x1 = max(x1, 0.0)
+                        y1 = max(y1, 0.0)
+                        x2 = min(x2, w)
+                        y2 = min(y2, h)
+                        box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
+                        boxes.append(box)
+        return boxes
+    else:
+        all_boxes = []
+        output = output.view(batch*num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, batch*num_anchors*h*w)
+        xy = torch.sigmoid(output[0:2])
+        wh = torch.exp(output[2:4])
+        det_confs = output[4]
+        cls_confs = torch.nn.Softmax()(Variable(output[5:5+num_classes].transpose(0,1))).data
+        cls_confs, cls_ids = torch.max(cls_confs, 1)
+        cls_confs = cls_confs.view(-1)
+        cls_ids = cls_ids.view(-1)
+        
+        sz_hw = h*w
+        sz_hwa = sz_hw*num_anchors
+        for b in range(batch):
+            boxes = []
+            for cy in range(h):
+                for cx in range(w):
+                    for i in range(num_anchors):
+                        ind = b*sz_hwa + i*sz_hw + cy*w + cx
+                        det_conf =  det_confs[ind]
+        
+                        if det_conf > conf_thresh:
+                            bcx = xy[0][ind] + cx
+                            bcy = xy[1][ind] + cy
+                            bw = anchors[2*i] * wh[0][ind]
+                            bh = anchors[2*i+1] * wh[1][ind]
+                            cls_conf = cls_confs[ind]
+                            cls_id = cls_ids[ind]
+                            x1 = bcx - bw/2
+                            y1 = bcy - bh/2
+                            x2 = bcx + bw/2
+                            y2 = bcy + bh/2
+                            x1 = max(x1, 0.0)
+                            y1 = max(y1, 0.0)
+                            x2 = min(x2, w)
+                            y2 = min(y2, h)
+                            box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
+                            boxes.append(box)
+            all_boxes.append(boxes)
+        return all_boxes
 
 def plot_boxes(img, boxes, savename, class_names=None):
     colors = torch.FloatTensor([[1,0,1],[0,0,1],[0,1,1],[0,1,0],[1,1,0],[1,0,0]]);

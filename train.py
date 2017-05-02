@@ -129,11 +129,14 @@ def test(epoch):
 
         output = model(data).data
         t2 = time.time()
+
+        all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors)
+        t3 = time.time()
         for i in range(output.size(0)):
             l0 = time.time()
             lineId = lineId + 1
 
-            boxes = get_region_boxes(output[i], conf_thresh, num_classes, anchors)
+            boxes = all_boxes[i]
             l1 = time.time()
 
             boxes = nms(boxes, nms_thresh)
@@ -177,18 +180,19 @@ def test(epoch):
                 print('      get correct : %f' % (l4 - l3))
                 print('           fscore : %f' % (l5 - l4))
                 print('------------------------------')
-        t3 = time.time()
+        t4 = time.time()
         if True:
             print('------------------------------')
-            print(' data to cuda : %f' % (t1 - t0))
-            print('batch predict : %f' % (t2 - t1))
-            print('       fscore : %f' % (t3 - t2))
+            print('    data to cuda : %f' % (t1 - t0))
+            print('   batch predict : %f' % (t2 - t1))
+            print('get_region_boxes : %f' % (t3 - t2))
+            print('          fscore : %f' % (t4 - t3))
             print('------------------------------')
 
-    precision = 1.0*correct/(proposals+0.000001)
-    recall = 1.0*correct/(total+0.000001)
-    fscore = 2.0*precision*recall/(precision+recall+0.000001)
-    print("%d : precision: %f, recal: %f, fscore: %f" % (epoch, precision, recall, fscore))
+        precision = 1.0*correct/(proposals+0.000001)
+        recall = 1.0*correct/(total+0.000001)
+        fscore = 2.0*precision*recall/(precision+recall+0.000001)
+        print("%d : precision: %f, recal: %f, fscore: %f" % (epoch, precision, recall, fscore))
 
 test(0)
 for epoch in range(1, args.epochs + 1):
