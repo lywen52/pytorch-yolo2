@@ -4,6 +4,7 @@ import math
 import torch
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from torch.autograd import Variable
 
 def sigmoid(x):
     return 1.0/(math.exp(-x)+1.)
@@ -67,44 +68,6 @@ def nms(boxes, nms_thresh):
                     box_j[4] = 0
     return out_boxes
 
-def get_region_boxes_slow(output, conf_thresh, num_classes, anchors):
-    num_anchors = len(anchors)/2
-    if output.dim() == 3:
-        output = output.unsqueeze(0)
-    assert(output.size(0) == 1)
-    assert(output.size(1) == (5+num_classes)*num_anchors)
-    h = output.size(2)
-    w = output.size(3)
-    boxes = []
-
-    output = output.view(num_anchors, 5+num_classes, h*w).transpose(1,2).contiguous()
-    output = output.view(num_anchors, h, w, 5+num_classes)
-    for cy in range(h):
-        for cx in range(w):
-            for i in range(num_anchors):
-                predict = output[i][cy][cx]
-                bcx = sigmoid(predict[0]) + cx
-                bcy = sigmoid(predict[1]) + cy
-                bw = anchors[2*i] * math.exp(predict[2])
-                bh = anchors[2*i+1] * math.exp(predict[3])
-                det_conf = sigmoid(predict[4]) 
-                cls_confs = softmax(predict[5:5+num_classes])
-                cls_conf, cls_id = torch.max(cls_confs, 0)
-                cls_conf = cls_conf[0]
-                cls_id = cls_id[0]
-                x1 = bcx - bw/2
-                y1 = bcy - bh/2
-                x2 = bcx + bw/2
-                y2 = bcy + bh/2
-                x1 = max(x1, 0.0)
-                y1 = max(y1, 0.0)
-                x2 = min(x2, w)
-                y2 = min(y2, h)
-                if det_conf > conf_thresh:
-                    box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
-                    boxes.append(box)
-    return boxes
-
 def get_region_boxes_fast1(output, conf_thresh, num_classes, anchors):
     num_anchors = len(anchors)/2
     if output.dim() == 3:
@@ -115,22 +78,13 @@ def get_region_boxes_fast1(output, conf_thresh, num_classes, anchors):
     w = output.size(3)
     boxes = []
 
-    #output = output.view(num_anchors, 5+num_classes, h*w).transpose(1,2).contiguous()
-    #output = output.view(num_anchors, h, w, 5+num_classes)
-
     output = output.view(num_anchors, 5+num_classes, h*w)
-    #out_xy = torch.index_select(output, 1, torch.LongTensor([0,1]))
-    #out_wh = torch.index_select(output, 1, torch.LongTensor([2,3]))
-    det_confs = torch.sigmoid(torch.index_select(output, 1, torch.LongTensor([4]).cuda())).view(num_anchors, h*w)
-    #cls_confs  = Variable(torch.index_select(output, 1, torch.linspace(5,24,20).long()).view(num_anchors, num_classes, h*w).transpose(1,2).contiguous().view(-1, num_classes))
-    #cls_confs  = torch.nn.Softmax()(cls_confs).data
-    #cls_conf, cls_id = torch.max(cls_confs,1)
     for cy in range(h):
         for cx in range(w):
             for i in range(num_anchors):
                 loc = cy * w + cx
                 predict = torch.index_select(output[i], 1, torch.LongTensor([loc]).cuda()).view(-1)
-                det_conf = det_confs[i][loc]
+                det_conf = sigmoid(predict[4])
 
                 if det_conf > conf_thresh:
                     bcx = sigmoid(predict[0]) + cx
@@ -163,26 +117,28 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
     w = output.size(3)
     boxes = []
 
-    #output = output.view(num_anchors, 5+num_classes, h*w).transpose(1,2).contiguous()
-    #output = output.view(num_anchors, h, w, 5+num_classes)
-
-    output = output.view(num_anchors, 5+num_classes, h*w)
+    output = output.view(num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, num_anchors*h*w)
+    xy = torch.sigmoid(output[0:2])
+    wh = torch.exp(output[2:4])
+    det_confs = output[4]
+    cls_confs = torch.nn.Softmax()(Variable(output[5:5+num_classes].transpose(0,1))).data
+    cls_confs, cls_ids = torch.max(cls_confs, 1)
+    cls_confs = cls_confs.view(-1)
+    cls_ids = cls_ids.view(-1)
+    
     for cy in range(h):
         for cx in range(w):
             for i in range(num_anchors):
-                loc = cy * w + cx
-                predict = torch.index_select(output[i], 1, torch.LongTensor([loc]).cuda()).view(-1)
-                det_conf = sigmoid(predict[4])
+                ind = i*h*w + cy * w + cx
+                det_conf =  det_confs[ind]
 
                 if det_conf > conf_thresh:
-                    bcx = sigmoid(predict[0]) + cx
-                    bcy = sigmoid(predict[1]) + cy
-                    bw = anchors[2*i] * math.exp(predict[2])
-                    bh = anchors[2*i+1] * math.exp(predict[3])
-                    cls_confs = softmax(predict[5:5+num_classes])
-                    cls_conf, cls_id = torch.max(cls_confs, 0)
-                    cls_conf = cls_conf[0]
-                    cls_id = cls_id[0]
+                    bcx = xy[0][ind] + cx
+                    bcy = xy[1][ind] + cy
+                    bw = anchors[2*i] * wh[0][ind]
+                    bh = anchors[2*i+1] * wh[1][ind]
+                    cls_conf = cls_confs[ind]
+                    cls_id = cls_ids[ind]
                     x1 = bcx - bw/2
                     y1 = bcy - bh/2
                     x2 = bcx + bw/2
@@ -194,7 +150,6 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                     box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
                     boxes.append(box)
     return boxes
-
 
 def plot_boxes(img, boxes, savename, class_names=None):
     colors = torch.FloatTensor([[1,0,1],[0,0,1],[0,1,1],[0,1,0],[1,1,0],[1,0,0]]);

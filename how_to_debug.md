@@ -47,6 +47,8 @@ There seems the problem in darknet
 detect.py cfg/yolo.cfg yolo.weight data/dog.jpg
 - slow : 0.145544 
 - fast : 0.050640
+- faster: 0.009280
 train.py
 - slow: 380ms
 - fast: 114ms
+- faster: 22ms
