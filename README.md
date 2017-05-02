@@ -8,18 +8,17 @@ python detect.py cfg/yolo.cfg data/coco.names yolo.weights data/dog.jpg
 You will see some output like this:
 ```
 layer     filters    size              input                output
-    0 conv     32  3 x 3 / 1   608 x 608 x   3   ->   608 x 608 x  32
-    1 max          2 x 2 / 2   608 x 608 x  32   ->   304 x 304 x  32
+    0 conv     32  3 x 3 / 1   416 x 416 x   3   ->   416 x 416 x  32
+    1 max          2 x 2 / 2   416 x 416 x  32   ->   208 x 208 x  32
     ......
-   30 conv    425  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 425
+   30 conv    425  1 x 1 / 1    13 x  13 x1024   ->    13 x  13 x 425
    31 detection
 Loading weights from yolo.weights... Done!
-data/dog.jpg: Predicted in 1.08085393906 seconds.
-boat: 0.111234
-boat: 0.095928
-sheep: 0.247619
+data/dog.jpg: Predicted in 0.789804935455 seconds.
+truck: 0.926668
+bicycle: 0.997449
+dog: 0.993459
 ```
-
 ---
 #### Real-Time Detection on a Webcam
 
