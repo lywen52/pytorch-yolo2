@@ -24,7 +24,7 @@ parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 10)')
-parser.add_argument('--lr', type=float, default=0.0001, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.00001, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
@@ -45,24 +45,26 @@ if args.cuda:
 kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 
 train_loader = torch.utils.data.DataLoader(
-    dataset.listDataset('train.txt', shuffle=True,
+    dataset.listDataset('voc_train.txt', shuffle=True,
                    transform=transforms.Compose([
                        transforms.Scale(416),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
-    dataset.listDataset('test.txt', shuffle=False,
+    dataset.listDataset('2007_test.txt', shuffle=False,
                    transform=transforms.Compose([
                        transforms.Scale(416),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
-model = TinyYoloFace14Net()
-region_loss = RegionLoss(model.num_classes, model.anchors)
-#model = Darknet('cfg/face4.1nb_inc2_96.16.cfg')
-#region_loss = model.loss
+#model = TinyYoloFace14Net()
+#region_loss = RegionLoss(model.num_classes, model.anchors)
+model = Darknet2('cfg/face4.1nb_inc2_96.16.cfg')
+region_loss = model.loss
+model.print_network()
+print(model)
 
 model.load_weights('face4.1nb_inc2_96.16.weights')
 
@@ -180,7 +182,7 @@ def test(epoch):
         precision = 1.0*correct/(proposals+0.000001)
         recall = 1.0*correct/(total+0.000001)
         fscore = 2.0*precision*recall/(precision+recall+0.000001)
-        print("%d : precision: %f, recal: %f, fscore: %f" % (batch_idx, precision, recall, fscore))
+        print("%d : precision: %f, recall: %f, fscore: %f" % (batch_idx, precision, recall, fscore))
 
 test(0)
 for epoch in range(1, args.epochs + 1):

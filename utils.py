@@ -68,6 +68,12 @@ def nms(boxes, nms_thresh):
                     box_j[4] = 0
     return out_boxes
 
+def convert2cpu(gpu_matrix):
+    return torch.FloatTensor(gpu_matrix.size()).copy_(gpu_matrix)
+
+def convert2cpu_long(gpu_matrix):
+    return torch.LongTensor(gpu_matrix.size()).copy_(gpu_matrix)
+
 def get_region_boxes(output, conf_thresh, num_classes, anchors):
     num_anchors = len(anchors)/2
     if output.dim() == 3:
@@ -78,6 +84,8 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
     w = output.size(3)
 
     if batch == 1:
+        t0 =time.time()
+
         boxes = []
         output = output.view(num_anchors, 5+num_classes, h*w).transpose(0,1).contiguous().view(5+num_classes, num_anchors*h*w)
         xy = torch.sigmoid(output[0:2])
@@ -87,7 +95,14 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
         cls_confs, cls_ids = torch.max(cls_confs, 1)
         cls_confs = cls_confs.view(-1)
         cls_ids = cls_ids.view(-1)
-        
+        t1 =time.time()
+
+        det_confs = convert2cpu(det_confs)
+        xy = convert2cpu(xy)
+        wh = convert2cpu(wh)
+        cls_confs = convert2cpu(cls_confs)
+        cls_ids = convert2cpu_long(cls_ids)
+        t2 = time.time()
         for cy in range(h):
             for cx in range(w):
                 for i in range(num_anchors):
@@ -111,6 +126,13 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors):
                         y2 = min(y2, h)
                         box = [x1/w, y1/h, x2/w, y2/h, det_conf, cls_conf, cls_id]
                         boxes.append(box)
+        t3 = time.time()
+        if False:
+            print('---------------------------------')
+            print('matrix computation : %f' % (t1-t0))
+            print('        gpu to cpu : %f' % (t2-t1))
+            print('      boxes filter : %f' % (t3-t2))
+            print('---------------------------------')
         return boxes
     else:
         t0 = time.time()
@@ -262,7 +284,7 @@ def do_detect(model, img, conf_thresh, nms_thresh, use_cuda=1):
     boxes = nms(boxes, nms_thresh)
     t5 = time.time()
 
-    if True:
+    if False:
         print('-----------------------------------')
         print(' image to tensor : %f' % (t1 - t0))
         print('  tensor to cuda : %f' % (t2 - t1))

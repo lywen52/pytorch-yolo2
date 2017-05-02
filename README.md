@@ -14,7 +14,7 @@ layer     filters    size              input                output
    30 conv    425  1 x 1 / 1    13 x  13 x1024   ->    13 x  13 x 425
    31 detection
 Loading weights from yolo.weights... Done!
-data/dog.jpg: Predicted in 0.789804935455 seconds.
+data/dog.jpg: Predicted in 0.014079 seconds.
 truck: 0.926668
 bicycle: 0.997449
 dog: 0.993459

@@ -29,7 +29,7 @@ class listDataset(Dataset):
     def __getitem__(self, index):
         assert index <= len(self), 'index range error'
         imgpath = self.lines[index].rstrip()
-        labpath = imgpath.replace('images', 'labels').replace('.jpg', '.txt')
+        labpath = imgpath.replace('images', 'labels').replace('JPEGImages', 'labels').replace('.jpg', '.txt')
         label = torch.zeros(50*5)
 
         if os.path.getsize(labpath):
