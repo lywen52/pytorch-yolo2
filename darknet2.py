@@ -63,6 +63,8 @@ class Darknet2(nn.Module):
         outputs = dict()
         for block in self.blocks:
             ind = ind + 1
+            #if ind > 27:
+            #    break
 
             if block['type'] == 'net':
                 continue
