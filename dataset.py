@@ -22,7 +22,7 @@ class listDataset(Dataset):
        self.nSamples  = len(self.lines)
        self.transform = transform
        self.target_transform = target_transform
-       self.size = (416,416)
+       self.size = (544,544)
 
     def __len__(self):
         return self.nSamples

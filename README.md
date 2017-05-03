@@ -1,5 +1,11 @@
 ### yolo2
-Completely convert https://pjreddie.com/darknet/yolo/ into pytorch2.
+Completely convert https://pjreddie.com/darknet/yolo/ into pytorch2. This repository is trying to achieve the following goals.
+- detect, partial, eval functions
+- load darknet cfg
+- load darknet saved weights
+- save to darknet weights
+- fast evaluation
+- fast training
 
 ---
 #### Detection Using A Pre-Trained Model
