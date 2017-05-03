@@ -1,5 +1,5 @@
 ### pytorch-yolo2
-Convert https://pjreddie.com/darknet/yolo/ into pytorch2. This repository is trying to achieve the following goals.
+Convert https://pjreddie.com/darknet/yolo/ into pytorch. This repository is trying to achieve the following goals.
 - [x] implement RegionLoss, MaxPoolStrid1, Reorg, GolbalAvgPool2d without cffi bindings
 - [x] detect, partial, valid functions
 - [x] load darknet cfg
@@ -73,7 +73,7 @@ python train.py cfg/voc.data cfg/yolo-voc.cfg darknet19_448.conv.23
 ```
 ##### Evaluate The Model
 ```
-python valid.py cfg/voc.data cfg/yolo-voc.cfg ../yolo-voc.weights
+python valid.py cfg/voc.data cfg/yolo-voc.cfg yolo-voc.weights
 ```
 ---
 #### Todo
