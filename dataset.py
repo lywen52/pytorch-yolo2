@@ -22,6 +22,7 @@ class listDataset(Dataset):
        self.nSamples  = len(self.lines)
        self.transform = transform
        self.target_transform = target_transform
+       self.size = (416,416)
 
     def __len__(self):
         return self.nSamples
@@ -43,6 +44,7 @@ class listDataset(Dataset):
                 label[0:tsz] = tmp
 
         img = Image.open(imgpath).convert('RGB')
+        img = img.resize(self.size)
 
         if self.transform is not None:
             img = self.transform(img)

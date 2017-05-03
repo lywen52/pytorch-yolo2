@@ -47,27 +47,29 @@ kwargs = {'num_workers': 4, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
     dataset.listDataset('voc_train.txt', shuffle=True,
                    transform=transforms.Compose([
-                       transforms.Scale(416),
+                       #transforms.Scale((416, 416)),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
     dataset.listDataset('2007_test.txt', shuffle=False,
                    transform=transforms.Compose([
-                       transforms.Scale(416),
+                       #transforms.Scale([416, 416]),
                        transforms.ToTensor(),
                    ])),
     batch_size=args.test_batch_size, shuffle=False, **kwargs)
 
 #model = TinyYoloFace14Net()
 #region_loss = RegionLoss(model.num_classes, model.anchors)
-model = Darknet2('cfg/face4.1nb_inc2_96.16.cfg')
+#model = Darknet2('cfg/face4.1nb_inc2_96.16.cfg')
+#model.load_weights('face4.1nb_inc2_96.16.weights')
+
+model = Darknet2('cfg/yolo.cfg')
+model.load_weights('yolo.weights')
+
 region_loss = model.loss
 model.print_network()
 print(model)
-
-model.load_weights('face4.1nb_inc2_96.16.weights')
-
 if args.cuda:
     model = torch.nn.DataParallel(model).cuda()
 

@@ -1,4 +1,6 @@
 ### yolo2
+Completely convert https://pjreddie.com/darknet/yolo/ into pytorch2.
+
 ---
 #### Detection Using A Pre-Trained Model
 ```
